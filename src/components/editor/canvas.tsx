@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import ReactFlow, {
     Background,
     BackgroundVariant,
@@ -36,16 +36,17 @@ import { PerformancePanel } from './performance-panel';
 import { PerformanceEngine } from '@/lib/performance-engine';
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 
-// Define nodeTypes and edgeTypes outside component to prevent re-creation
-const nodeTypes = {
-    table: TableNode,
-};
-
-const edgeTypes = {
-    relationship: DatabaseRelationshipEdge,
-};
-
 const CanvasContent = () => {
+    // Memoize nodeTypes and edgeTypes to prevent re-creation warnings
+    const nodeTypes = useMemo(() => ({
+        table: TableNode,
+    }), []);
+
+    const edgeTypes = useMemo(() => ({
+        relationship: DatabaseRelationshipEdge,
+        editableRelationship: DatabaseRelationshipEdge, // Alias for backward compatibility or data issues
+    }), []);
+
     const [validationPanelOpen, setValidationPanelOpen] = useState(false);
     const [exportPanelOpen, setExportPanelOpen] = useState(false);
     const [performancePanelOpen, setPerformancePanelOpen] = useState(false);

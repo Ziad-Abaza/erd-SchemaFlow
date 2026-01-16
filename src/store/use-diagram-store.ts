@@ -111,6 +111,11 @@ type DiagramStore = DiagramData & {
     getDiagramStats: () => { totalNodes: number; totalEdges: number; totalColumns: number; memoryUsage?: number };
     optimizePerformance: () => void;
     cleanupUnusedElements: () => void;
+    // Edge routing operations
+    updateEdgeData: (edgeId: string, data: any) => void;
+    updateEdgePathPoints: (edgeId: string, points: { x: number; y: number }[]) => void;
+    addEdgePathPoint: (edgeId: string, point: { x: number; y: number }) => void;
+    removeEdgePathPoint: (edgeId: string, index: number) => void;
 };
 
 export const useDiagramStore = create<DiagramStore>((set, get) => ({
@@ -1168,5 +1173,41 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
         });
 
         set({ nodes: cleanedNodes });
+    },
+    updateEdgeData: (edgeId: string, data: any) => {
+        const { edges } = get();
+        const updatedEdges = edges.map(edge =>
+            edge.id === edgeId
+                ? { ...edge, data: { ...edge.data, ...data } }
+                : edge
+        );
+        set({ edges: updatedEdges });
+    },
+    updateEdgePathPoints: (edgeId: string, points: { x: number; y: number }[]) => {
+        const { edges } = get();
+        const updatedEdges = edges.map(edge =>
+            edge.id === edgeId
+                ? { ...edge, data: { ...edge.data, pathPoints: points } }
+                : edge
+        );
+        set({ edges: updatedEdges });
+    },
+    addEdgePathPoint: (edgeId: string, point: { x: number; y: number }) => {
+        const { edges } = get();
+        const updatedEdges = edges.map(edge => {
+            if (edge.id !== edgeId) return edge;
+            const pathPoints = [...(edge.data?.pathPoints || []), point];
+            return { ...edge, data: { ...edge.data, pathPoints } };
+        });
+        set({ edges: updatedEdges });
+    },
+    removeEdgePathPoint: (edgeId: string, index: number) => {
+        const { edges } = get();
+        const updatedEdges = edges.map(edge => {
+            if (edge.id !== edgeId) return edge;
+            const pathPoints = (edge.data?.pathPoints || []).filter((_: any, i: number) => i !== index);
+            return { ...edge, data: { ...edge.data, pathPoints } };
+        });
+        set({ edges: updatedEdges });
     },
 }));

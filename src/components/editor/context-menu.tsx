@@ -333,9 +333,23 @@ export const RelationshipContextMenu = memo(({
     position: { x: number; y: number };
     onClose: () => void;
 }) => {
-    const { deleteRelationship } = useDiagramStore();
+    const { deleteRelationship, updateEdgePathPoints } = useDiagramStore();
 
     const actions: ContextMenuAction[] = [
+        {
+            id: 'reset-path',
+            label: 'Reset Edge Path',
+            icon: <Edit3 className="w-3 h-3" />,
+            onClick: () => {
+                updateEdgePathPoints(edgeId, []);
+            }
+        },
+        {
+            id: 'separator',
+            label: '',
+            separator: true,
+            onClick: () => { }
+        },
         {
             id: 'delete-rel',
             label: 'Delete Relationship Only',
