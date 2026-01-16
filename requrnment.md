@@ -144,12 +144,23 @@
 
 ---
 
-### **Phase 12: Collaboration & Real-Time Multi-user Editing**
+### **Phase 12: Automatic Schema Generation from SQL File
 
-* Integrate **Yjs** for real-time collaboration (like Figma).
-* Live cursors and selection highlights for multiple users.
-* Comments / Annotations per table or column.
-* Version comparison and snapshot restoration.
+Allow users to upload a .sql file.
+
+Automatically parse the file and generate a pre-populated ERD on the Canvas:
+
+Detect CREATE TABLE statements and extract table names, columns, and constraints.
+
+Detect FOREIGN KEY constraints and create initial edges.
+
+Map SQL types to internal JSON representation.
+
+Apply initial automated layout using Dagre.js or force-directed layout.
+
+Provide feedback for invalid or unsupported SQL statements.
+
+Enable immediate editing of the generated diagram (CRUD, drag-drop FK, etc.)
 
 ---
 

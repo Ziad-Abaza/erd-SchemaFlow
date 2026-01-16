@@ -1,0 +1,268 @@
+import { Edge, Node } from 'reactflow';
+import { Column, TableNodeData } from '@/components/editor/nodes/table-node';
+
+export interface Relationship {
+  id: string;
+  sourceTable: string;
+  sourceColumn: string;
+  targetTable: string;
+  targetColumn: string;
+  cardinality: '1:1' | '1:N' | 'N:M';
+  onDelete?: 'CASCADE' | 'SET NULL' | 'RESTRICT';
+  onUpdate?: 'CASCADE' | 'SET NULL' | 'RESTRICT';
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export class RelationshipDetector {
+  static detectRelationships(nodes: Node<TableNodeData>[]): Relationship[] {
+    const relationships: Relationship[] = [];
+    const tableMap = new Map<string, Node<TableNodeData>>();
+
+    // Create a map of table names to nodes for easy lookup
+    nodes.forEach(node => {
+      tableMap.set(node.data.label.toLowerCase(), node);
+    });
+
+    // Scan each table for foreign key columns with explicit references
+    nodes.forEach(sourceNode => {
+      sourceNode.data.columns.forEach(column => {
+        if (column.isForeignKey) {
+          // First try to find explicit foreign key reference information
+          const explicitRef = this.findExplicitReference(sourceNode, column, nodes);
+          
+          if (explicitRef) {
+            relationships.push(explicitRef);
+          } else {
+            // Fallback to inference from column name convention
+            const targetTableName = this.inferTargetTable(column.name, Array.from(tableMap.keys()));
+            
+            if (targetTableName && tableMap.has(targetTableName)) {
+              const targetNode = tableMap.get(targetTableName)!;
+              const targetColumn = this.findTargetColumn(column, targetNode.data.columns);
+              
+              if (targetColumn) {
+                const relationship: Relationship = {
+                  id: `${sourceNode.id}-${targetNode.id}-${column.name}`,
+                  sourceTable: sourceNode.data.label,
+                  sourceColumn: column.name,
+                  targetTable: targetNode.data.label,
+                  targetColumn: targetColumn.name,
+                  cardinality: this.determineCardinality(column, targetColumn),
+                };
+                
+                relationships.push(relationship);
+              }
+            }
+          }
+        }
+      });
+    });
+
+    return relationships;
+  }
+
+  static relationshipsToEdges(relationships: Relationship[]): Edge[] {
+    return relationships.map(rel => ({
+      id: rel.id,
+      source: rel.sourceTable.toLowerCase().replace(/\s+/g, '_'),
+      target: rel.targetTable.toLowerCase().replace(/\s+/g, '_'),
+      type: 'relationship',
+      data: {
+        relationship: rel,
+        label: `${rel.sourceColumn} → ${rel.targetColumn}`,
+        cardinality: rel.cardinality,
+        isValid: true, // Will be updated by validation
+      },
+      animated: true,
+      style: {
+        strokeWidth: 2,
+        stroke: '#3b82f6',
+      },
+    }));
+  }
+
+  static validateAndHighlightEdges(nodes: Node<TableNodeData>[], edges: Edge[]): Edge[] {
+    const validation = this.validateRelationships(nodes, edges);
+    
+    return edges.map(edge => {
+      const isValid = validation.isValid && !validation.errors.some(error => 
+        error.includes(edge.id) || error.includes(edge.source) || error.includes(edge.target)
+      );
+      
+      return {
+        ...edge,
+        data: {
+          ...edge.data,
+          isValid,
+        },
+        style: {
+          ...edge.style,
+          stroke: isValid ? '#3b82f6' : '#ef4444',
+          strokeWidth: isValid ? 2 : 3,
+        },
+        animated: !isValid,
+      };
+    });
+  }
+
+  static validateRelationships(nodes: Node<TableNodeData>[], edges: Edge[]): ValidationResult {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    const tableMap = new Map<string, Node<TableNodeData>>();
+    nodes.forEach(node => {
+      tableMap.set(node.data.label.toLowerCase(), node);
+    });
+
+    edges.forEach(edge => {
+      const sourceNode = nodes.find(n => n.id === edge.source);
+      const targetNode = nodes.find(n => n.id === edge.target);
+
+      if (!sourceNode || !targetNode) {
+        errors.push(`Edge ${edge.id} references non-existent table (source: ${edge.source}, target: ${edge.target})`);
+        return;
+      }
+
+      // Check if foreign key columns exist
+      if (edge.data?.relationship) {
+        const rel = edge.data.relationship as Relationship;
+        const sourceColumn = sourceNode.data.columns.find(c => c.name === rel.sourceColumn);
+        const targetColumn = targetNode.data.columns.find(c => c.name === rel.targetColumn);
+
+        if (!sourceColumn) {
+          errors.push(`Source column ${rel.sourceColumn} not found in table ${rel.sourceTable}`);
+        }
+        if (!targetColumn) {
+          errors.push(`Target column ${rel.targetColumn} not found in table ${rel.targetTable}`);
+        }
+
+        // Check if target column is a primary key
+        if (targetColumn && !targetColumn.isPrimaryKey) {
+          warnings.push(`Target column ${rel.targetColumn} in table ${rel.targetTable} is not a primary key`);
+        }
+      } else {
+        // For manually created edges without relationship data
+        warnings.push(`Edge ${edge.id} has no relationship data`);
+      }
+    });
+
+    // Check for tables without primary keys
+    nodes.forEach(node => {
+      const hasPrimaryKey = node.data.columns.some(col => col.isPrimaryKey);
+      if (!hasPrimaryKey) {
+        warnings.push(`Table ${node.data.label} does not have a primary key`);
+      }
+    });
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+    };
+  }
+
+  private static findExplicitReference(
+    sourceNode: Node<TableNodeData>, 
+    column: Column, 
+    nodes: Node<TableNodeData>[]
+  ): Relationship | null {
+    // For now, this is a placeholder for explicit reference detection
+    // In a full implementation, this would parse the SQL foreign key constraints
+    // and extract the exact referenced table and column information
+    
+    // Check if column name suggests a specific reference
+    const patterns = [
+      /^(.*)_id$/,           // user_id -> users
+      /^(.*)_fk$/,           // user_fk -> users
+      /^(.*)_uuid$/,         // user_uuid -> users
+      /^id_(.*)$/,           // id_user -> users
+    ];
+
+    for (const pattern of patterns) {
+      const match = column.name.match(pattern);
+      if (match) {
+        const tableName = match[1];
+        const targetNode = nodes.find(n => 
+          n.data.label.toLowerCase() === tableName || 
+          n.data.label.toLowerCase() === `${tableName}s`
+        );
+        
+        if (targetNode) {
+          const targetColumn = this.findTargetColumn(column, targetNode.data.columns);
+          if (targetColumn) {
+            return {
+              id: `${sourceNode.id}-${targetNode.id}-${column.name}`,
+              sourceTable: sourceNode.data.label,
+              sourceColumn: column.name,
+              targetTable: targetNode.data.label,
+              targetColumn: targetColumn.name,
+              cardinality: this.determineCardinality(column, targetColumn),
+            };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private static inferTargetTable(columnName: string, tableNames: string[]): string | null {
+    // Common naming conventions for foreign keys
+    const patterns = [
+      /^(.*)_id$/,           // user_id -> users
+      /^(.*)_fk$/,           // user_fk -> users
+      /^(.*)_uuid$/,         // user_uuid -> users
+      /^id_(.*)$/,           // id_user -> users
+    ];
+
+    for (const pattern of patterns) {
+      const match = columnName.match(pattern);
+      if (match) {
+        const tableName = match[1];
+        // Try exact match first
+        if (tableNames.includes(tableName)) {
+          return tableName;
+        }
+        // Try plural form
+        const pluralName = tableName.endsWith('s') ? tableName : `${tableName}s`;
+        if (tableNames.includes(pluralName)) {
+          return pluralName;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private static findTargetColumn(sourceColumn: Column, targetColumns: Column[]): Column | null {
+    // First try to find a primary key with the same name
+    const pkMatch = targetColumns.find(col => 
+      col.isPrimaryKey && col.name === sourceColumn.name
+    );
+    if (pkMatch) return pkMatch;
+
+    // Then try common primary key names
+    const commonPKNames = ['id', 'uuid', 'pk'];
+    for (const pkName of commonPKNames) {
+      const pk = targetColumns.find(col => col.isPrimaryKey && col.name === pkName);
+      if (pk) return pk;
+    }
+
+    // Finally, return any primary key
+    return targetColumns.find(col => col.isPrimaryKey) || null;
+  }
+
+  private static determineCardinality(sourceColumn: Column, targetColumn: Column): '1:1' | '1:N' | 'N:M' {
+    // This is a simplified heuristic - in a real implementation,
+    // you'd analyze the database schema more thoroughly
+    if (sourceColumn.isUnique && targetColumn.isUnique) {
+      return '1:1';
+    }
+    return '1:N'; // Most common case
+  }
+}
