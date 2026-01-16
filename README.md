@@ -1,6 +1,6 @@
 # ERD SchemaFlow - Advanced Entity Relationship Diagram Editor
 
-![ERD Editor Overview](/overview.jpeg)
+![ERD Editor Overview](public/overview.jpeg)
 
 A powerful, feature-rich web-based ERD (Entity Relationship Diagram) editor built with Next.js, React Flow, and modern web technologies. Designed for database architects and developers to visualize, design, and export database schemas with comprehensive SQL support.
 
