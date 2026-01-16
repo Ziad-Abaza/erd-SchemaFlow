@@ -3,27 +3,13 @@
 import React, { useState } from 'react';
 import { Panel } from 'reactflow';
 import { useDiagramStore } from '@/store/use-diagram-store';
-import { 
-    Download, 
-    FileImage, 
-    FileText, 
-    Upload, 
-    Database, 
-    Layout, 
-    ChevronDown,
-    History,
-    Save,
-    FolderOpen,
-    Settings
-} from 'lucide-react';
+import { Download, FileImage, FileText, Upload, Database, Layout, ChevronDown } from 'lucide-react';
 import { SqlImportPanel } from './sql-import-panel';
 
 const Toolbar = () => {
-    const { selectedNodes, deleteSelectedNodes, addTable, detectRelationships, autoLayout, runValidation, saveToLocal, loadFromLocal } = useDiagramStore();
+    const { selectedNodes, deleteSelectedNodes, addTable, detectRelationships, autoLayout, runValidation } = useDiagramStore();
     const [showImportPanel, setShowImportPanel] = useState(false);
     const [showLayoutOptions, setShowLayoutOptions] = useState(false);
-    const [showHistoryPanel, setShowHistoryPanel] = useState(false);
-    const [showExportPanel, setShowExportPanel] = useState(false);
 
     const handleAddNewTable = () => {
         const tableName = prompt('Enter table name:');
@@ -33,15 +19,13 @@ const Toolbar = () => {
     };
 
     const openExportPanel = () => {
-        setShowExportPanel(true);
+        // This will be handled by the parent component
+        const event = new CustomEvent('openExportPanel');
+        window.dispatchEvent(event);
     };
 
     const openImportPanel = () => {
         setShowImportPanel(true);
-    };
-
-    const openHistoryPanel = () => {
-        setShowHistoryPanel(true);
     };
 
     const handleSmartLayout = (type: 'hierarchical' | 'force' | 'group' = 'hierarchical') => {
@@ -49,259 +33,140 @@ const Toolbar = () => {
         setShowLayoutOptions(false);
     };
 
-    const handleQuickExport = (format: 'png' | 'svg' | 'pdf' | 'sql') => {
-        // This will trigger the export panel with pre-selected format
-        const event = new CustomEvent('openExportPanel', { detail: { format } });
-        window.dispatchEvent(event);
-    };
-
     return (
         <>
             <Panel 
                 position="top-right" 
-                className="react-flow__panel flex flex-col gap-4 p-4 w-64"
+                className="react-flow__panel flex flex-col gap-3 p-3 w-48"
             >
-                <div className="bg-card/95 backdrop-blur-sm rounded-xl shadow-lg border border-border p-4 transition-all duration-200 hover:shadow-xl">
-                    {/* Header */}
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-3 h-3 bg-gradient-to-r from-primary to-primary/80 rounded-full animate-pulse"></div>
-                        <div>
-                            <div className="text-sm font-semibold text-foreground">ERD Editor</div>
-                            <div className="text-xs text-muted-foreground">Professional Database Design</div>
+                <div className="bg-card/95 backdrop-blur-sm rounded-lg shadow-md border border-border p-3 transition-all duration-200 hover:shadow-lg">
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                            <div className="text-xs font-semibold text-foreground">ERD Editor</div>
+                            <div className="text-xs text-muted-foreground">v0.1</div>
                         </div>
-                    </div>
-
-                    {/* Quick Actions */}
-                    <div className="space-y-3">
-                        <div className="text-xs font-semibold text-foreground/80 mb-2">Quick Actions</div>
                         
-                        <div className="grid grid-cols-2 gap-2">
+                        {/* Add Table Button */}
+                        <button
+                            onClick={handleAddNewTable}
+                            className="bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center justify-center p-2 text-xs font-medium"
+                        >
+                            + Add Table
+                        </button>
+
+                        {/* Delete Selected Button */}
+                        {selectedNodes.length > 0 && (
                             <button
-                                onClick={handleAddNewTable}
-                                className="bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 flex items-center justify-center p-3 text-xs font-medium shadow-sm hover:shadow-md"
+                                onClick={deleteSelectedNodes}
+                                className="bg-red-600 hover:bg-red-700 text-white rounded transition-colors p-2 text-xs font-medium"
                             >
-                                <Database className="w-4 h-4" />
-                                Add Table
+                                Delete Selected ({selectedNodes.length})
+                            </button>
+                        )}
+
+                        <div className="w-full h-px bg-border"></div>
+
+                        {/* Detect Relationship Button */}
+                        <button 
+                            onClick={detectRelationships}
+                            className="bg-card/80 hover:bg-card text-foreground border border-border rounded transition-colors p-2 text-xs font-medium"
+                        >
+                            Detect Relationship
+                        </button>
+
+                        {/* Smart Layout Button */}
+                        <div className="relative">
+                            <button 
+                                onClick={() => setShowLayoutOptions(!showLayoutOptions)}
+                                className="bg-card/80 hover:bg-card text-foreground border border-border rounded transition-colors p-2 text-xs font-medium flex items-center gap-1"
+                            >
+                                <Layout className="w-3 h-3" />
+                                Smart Layout
+                                <ChevronDown className="w-3 h-3" />
                             </button>
                             
-                            {selectedNodes.length > 0 && (
-                                <button
-                                    onClick={deleteSelectedNodes}
-                                    className="bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200 flex items-center justify-center p-3 text-xs font-medium shadow-sm hover:shadow-md"
-                                >
-                                    Delete Selected ({selectedNodes.length})
-                                </button>
+                            {/* Layout Options Dropdown */}
+                            {showLayoutOptions && (
+                                <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 min-w-48">
+                                    <div className="p-1">
+                                        <button
+                                            onClick={() => handleSmartLayout('hierarchical')}
+                                            className="w-full text-left px-3 py-2 text-xs hover:bg-accent rounded transition-colors flex items-center gap-2"
+                                        >
+                                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                            Hierarchical Layout
+                                            <span className="text-muted-foreground text-xs">Best for parent-child relationships</span>
+                                        </button>
+                                        <button
+                                            onClick={() => handleSmartLayout('force')}
+                                            className="w-full text-left px-3 py-2 text-xs hover:bg-accent rounded transition-colors flex items-center gap-2"
+                                        >
+                                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                            Force Directed Layout
+                                            <span className="text-muted-foreground text-xs">Optimizes relationship flow</span>
+                                        </button>
+                                        <button
+                                            onClick={() => handleSmartLayout('group')}
+                                            className="w-full text-left px-3 py-2 text-xs hover:bg-accent rounded transition-colors flex items-center gap-2"
+                                        >
+                                            <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                                            Group Layout
+                                            <span className="text-muted-foreground text-xs">Groups related tables</span>
+                                        </button>
+                                    </div>
+                                </div>
                             )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                            <button
-                                onClick={detectRelationships}
-                                className="bg-card/80 hover:bg-card text-foreground border border-border rounded-lg transition-all duration-200 flex items-center justify-center p-3 text-xs font-medium shadow-sm hover:shadow-md"
-                            >
-                                <Layout className="w-4 h-4" />
-                                Detect Relationships
-                            </button>
-                            
-                            <div className="relative">
-                                <button 
-                                    onClick={() => setShowLayoutOptions(!showLayoutOptions)}
-                                    className="bg-card/80 hover:bg-card text-foreground border border-border rounded-lg transition-all duration-200 flex items-center justify-center p-3 text-xs font-medium shadow-sm hover:shadow-md"
-                                >
-                                    <Layout className="w-4 h-4" />
-                                    Smart Layout
-                                    <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showLayoutOptions ? 'rotate-180' : ''}`} />
-                                </button>
-                                
-                                {/* Layout Options Dropdown */}
-                                {showLayoutOptions && (
-                                    <div className="absolute top-full left-0 mt-2 bg-card border border-border rounded-xl shadow-xl z-50 min-w-56 p-2">
-                                        <div className="space-y-1">
-                                            <button
-                                                onClick={() => handleSmartLayout('hierarchical')}
-                                                className="w-full text-left px-3 py-2 text-xs hover:bg-accent rounded-lg transition-colors flex items-center gap-3"
-                                            >
-                                                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                                                <div>
-                                                    <div className="font-medium">Hierarchical Layout</div>
-                                                    <div className="text-muted-foreground text-xs">Best for parent-child relationships</div>
-                                                </div>
-                                            </button>
-                                            <button
-                                                onClick={() => handleSmartLayout('force')}
-                                                className="w-full text-left px-3 py-2 text-xs hover:bg-accent rounded-lg transition-colors flex items-center gap-3"
-                                            >
-                                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                                                <div>
-                                                    <div className="font-medium">Force Directed Layout</div>
-                                                    <div className="text-muted-foreground text-xs">Optimizes relationship flow</div>
-                                                </div>
-                                            </button>
-                                            <button
-                                                onClick={() => handleSmartLayout('group')}
-                                                className="w-full text-left px-3 py-2 text-xs hover:bg-accent rounded-lg transition-colors flex items-center gap-3"
-                                            >
-                                                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                                                <div>
-                                                    <div className="font-medium">Group Layout</div>
-                                                    <div className="text-muted-foreground text-xs">Groups related tables</div>
-                                                </div>
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        <div className="w-full h-px bg-border"></div>
 
-                        <button
+                        {/* Validate Button */}
+                        <button 
                             onClick={runValidation}
-                            className="w-full bg-card/80 hover:bg-card text-foreground border border-border rounded-lg transition-all duration-200 flex items-center justify-center p-3 text-xs font-medium shadow-sm hover:shadow-md"
+                            className="bg-card/80 hover:bg-card text-foreground border border-border rounded transition-colors p-2 text-xs font-medium"
                         >
-                            <Settings className="w-4 h-4" />
-                            Validate Schema
+                            Validate
                         </button>
-                    </div>
 
-                    {/* Divider */}
-                    <div className="h-px bg-border/60 my-4"></div>
+                        <div className="w-full h-px bg-border"></div>
 
-                    {/* Data Management */}
-                    <div className="space-y-3">
-                        <div className="text-xs font-semibold text-foreground/80 mb-2">Data Management</div>
-                        
-                        <div className="grid grid-cols-2 gap-2">
-                            <button
+                        {/* Import Section */}
+                        <div className="flex flex-col gap-2">
+                            <div className="text-xs font-semibold text-foreground">Import</div>
+                            
+                            {/* Import SQL Button */}
+                            <button 
                                 onClick={openImportPanel}
-                                className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg transition-all duration-200 flex items-center justify-center p-3 text-xs font-medium shadow-sm hover:shadow-md"
+                                className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded transition-colors p-2 text-xs font-medium flex items-center gap-2"
                             >
-                                <Upload className="w-4 h-4" />
+                                <Database className="w-3 h-3" />
                                 Import SQL
                             </button>
-                            
-                            <div className="relative">
-                                <button 
-                                    onClick={() => setShowExportPanel(!showExportPanel)}
-                                    className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg transition-all duration-200 flex items-center justify-center p-3 text-xs font-medium shadow-sm hover:shadow-md"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    Export
-                                    <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showExportPanel ? 'rotate-180' : ''}`} />
-                                </button>
-                                
-                                {/* Export Options Dropdown */}
-                                {showExportPanel && (
-                                    <div className="absolute top-full left-0 mt-2 bg-card border border-border rounded-xl shadow-xl z-50 min-w-56 p-2">
-                                        <div className="space-y-1">
-                                            <button
-                                                onClick={() => handleQuickExport('png')}
-                                                className="w-full text-left px-3 py-2 text-xs hover:bg-accent rounded-lg transition-colors flex items-center gap-3"
-                                            >
-                                                <FileImage className="w-3 h-3" />
-                                                <div>
-                                                    <div className="font-medium">Export as PNG</div>
-                                                    <div className="text-muted-foreground text-xs">High-resolution image</div>
-                                                </div>
-                                            </button>
-                                            <button
-                                                onClick={() => handleQuickExport('svg')}
-                                                className="w-full text-left px-3 py-2 text-xs hover:bg-accent rounded-lg transition-colors flex items-center gap-3"
-                                            >
-                                                <FileText className="w-3 h-3" />
-                                                <div>
-                                                    <div className="font-medium">Export as SVG</div>
-                                                    <div className="text-muted-foreground text-xs">Vector graphics</div>
-                                                </div>
-                                            </button>
-                                            <button
-                                                onClick={() => handleQuickExport('pdf')}
-                                                className="w-full text-left px-3 py-2 text-xs hover:bg-accent rounded-lg transition-colors flex items-center gap-3"
-                                            >
-                                                <FileText className="w-3 h-3" />
-                                                <div>
-                                                    <div className="font-medium">Export as PDF</div>
-                                                    <div className="text-muted-foreground text-xs">Document format</div>
-                                                </div>
-                                            </button>
-                                            <button
-                                                onClick={() => handleQuickExport('sql')}
-                                                className="w-full text-left px-3 py-2 text-xs hover:bg-accent rounded-lg transition-colors flex items-center gap-3"
-                                            >
-                                                <Database className="w-3 h-3" />
-                                                <div>
-                                                    <div className="font-medium">Export as SQL</div>
-                                                    <div className="text-muted-foreground text-xs">Database schema</div>
-                                                </div>
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                            <button
-                                onClick={openHistoryPanel}
-                                className="bg-card/80 hover:bg-card text-foreground border border-border rounded-lg transition-all duration-200 flex items-center justify-center p-3 text-xs font-medium shadow-sm hover:shadow-md"
-                            >
-                                <History className="w-4 h-4" />
-                                History
-                            </button>
+                        <div className="w-full h-px bg-border"></div>
+
+                        {/* Export Section */}
+                        <div className="flex flex-col gap-2">
+                            <div className="text-xs font-semibold text-foreground">Export</div>
                             
-                            <button
-                                onClick={saveToLocal}
-                                className="bg-card/80 hover:bg-card text-foreground border border-border rounded-lg transition-all duration-200 flex items-center justify-center p-3 text-xs font-medium shadow-sm hover:shadow-md"
+                            {/* Export Diagram Button */}
+                            <button 
+                                onClick={openExportPanel}
+                                className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded transition-colors p-2 text-xs font-medium flex items-center gap-2"
                             >
-                                <Save className="w-4 h-4" />
-                                Save Project
+                                <Download className="w-3 h-3" />
+                                Export Diagram
                             </button>
                         </div>
                     </div>
                 </div>
             </Panel>
             
-            {/* Import Panel */}
+            {/* SQL Import Panel */}
             {showImportPanel && (
                 <SqlImportPanel onClose={() => setShowImportPanel(false)} />
-            )}
-
-            {/* Export Panel - Will be handled by existing export panel component */}
-            {showExportPanel && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-card rounded-xl shadow-2xl border border-border p-6 max-w-md w-full mx-4">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-foreground">Export Options</h3>
-                            <button
-                                onClick={() => setShowExportPanel(false)}
-                                className="text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <div className="text-sm text-muted-foreground mb-4">
-                            Choose your preferred export format from the options above.
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* History Panel - Will be handled by existing history component */}
-            {showHistoryPanel && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-card rounded-xl shadow-2xl border border-border p-6 max-w-md w-full mx-4">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-foreground">Project History</h3>
-                            <button
-                                onClick={() => setShowHistoryPanel(false)}
-                                className="text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <div className="text-sm text-muted-foreground mb-4">
-                            View and restore previous versions of your diagram.
-                        </div>
-                    </div>
-                </div>
             )}
         </>
     );

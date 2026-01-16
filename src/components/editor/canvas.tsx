@@ -23,8 +23,7 @@ import LayoutControls from './layout-controls';
 import SuggestionsPanel from './suggestions-panel';
 import Toolbar from './toolbar';
 import PropertyPanel from './property-panel';
-import HistoryPanel from './history-panel';
-import SQLExportPanel from './sql-export-panel';
+import BottomToolbar from './bottom-toolbar';
 import { ValidationPanel } from './validation-panel';
 import ExportPanel from './export-panel';
 import ExportButton from './export-button';
@@ -314,8 +313,7 @@ const CanvasContent = () => {
                 <Toolbar />
             </ReactFlow>
             <PropertyPanel />
-            <HistoryPanel />
-            <SQLExportPanel />
+            <BottomToolbar />
             <ValidationPanel 
                 isOpen={validationPanelOpen} 
                 onClose={() => setValidationPanelOpen(false)} 

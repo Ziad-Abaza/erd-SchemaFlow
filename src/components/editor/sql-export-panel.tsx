@@ -112,6 +112,7 @@ const SQLExportPanel = () => {
         return options.selectedOnly ? selectedNodes.length : nodes.filter(n => n.type === 'table').length;
     };
 
+    // button to open sql export panel
     if (!isOpen) {
         return (
             <div className="fixed bottom-4 left-4 z-40">

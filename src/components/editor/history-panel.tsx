@@ -98,6 +98,7 @@ const HistoryPanel = () => {
         return new Date(timestamp).toLocaleString();
     };
 
+    // button to open history panel
     if (!isOpen) {
         return (
             <div className="fixed bottom-4 right-4 z-40">
