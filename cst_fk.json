@@ -1,0 +1,141 @@
+﻿{
+  "type": "program",
+  "statements": [
+    {
+      "type": "create_table_stmt",
+      "createKw": {
+        "type": "keyword",
+        "text": "CREATE",
+        "name": "CREATE"
+      },
+      "tableKw": {
+        "type": "keyword",
+        "text": "TABLE",
+        "name": "TABLE"
+      },
+      "name": {
+        "type": "identifier",
+        "text": "posts",
+        "name": "posts"
+      },
+      "columns": {
+        "type": "paren_expr",
+        "expr": {
+          "type": "list_expr",
+          "items": [
+            {
+              "type": "column_definition",
+              "name": {
+                "type": "identifier",
+                "text": "id",
+                "name": "id"
+              },
+              "dataType": {
+                "type": "data_type_name",
+                "name": {
+                  "type": "keyword",
+                  "text": "INT",
+                  "name": "INT"
+                }
+              },
+              "constraints": [
+                {
+                  "type": "constraint_primary_key",
+                  "primaryKeyKw": [
+                    {
+                      "type": "keyword",
+                      "text": "PRIMARY",
+                      "name": "PRIMARY"
+                    },
+                    {
+                      "type": "keyword",
+                      "text": "KEY",
+                      "name": "KEY"
+                    }
+                  ],
+                  "clauses": []
+                }
+              ]
+            },
+            {
+              "type": "column_definition",
+              "name": {
+                "type": "identifier",
+                "text": "user_id",
+                "name": "user_id"
+              },
+              "dataType": {
+                "type": "data_type_name",
+                "name": {
+                  "type": "keyword",
+                  "text": "INT",
+                  "name": "INT"
+                }
+              },
+              "constraints": []
+            },
+            {
+              "type": "constraint_foreign_key",
+              "foreignKeyKw": [
+                {
+                  "type": "keyword",
+                  "text": "FOREIGN",
+                  "name": "FOREIGN"
+                },
+                {
+                  "type": "keyword",
+                  "text": "KEY",
+                  "name": "KEY"
+                }
+              ],
+              "columns": {
+                "type": "paren_expr",
+                "expr": {
+                  "type": "list_expr",
+                  "items": [
+                    {
+                      "type": "identifier",
+                      "text": "user_id",
+                      "name": "user_id"
+                    }
+                  ]
+                }
+              },
+              "references": {
+                "type": "references_specification",
+                "referencesKw": {
+                  "type": "keyword",
+                  "text": "REFERENCES",
+                  "name": "REFERENCES"
+                },
+                "table": {
+                  "type": "identifier",
+                  "text": "users",
+                  "name": "users"
+                },
+                "columns": {
+                  "type": "paren_expr",
+                  "expr": {
+                    "type": "list_expr",
+                    "items": [
+                      {
+                        "type": "identifier",
+                        "text": "id",
+                        "name": "id"
+                      }
+                    ]
+                  }
+                },
+                "options": []
+              }
+            }
+          ]
+        }
+      },
+      "clauses": []
+    },
+    {
+      "type": "empty"
+    }
+  ]
+}
