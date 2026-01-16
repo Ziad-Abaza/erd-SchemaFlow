@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Panel } from 'reactflow';
 import { useDiagramStore } from '@/store/use-diagram-store';
-import { Download, FileImage, FileText, Upload, Database, Layout, ChevronDown, Activity, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Download, Database, Layout, ChevronDown, Activity, RotateCcw, AlertTriangle, Sparkles, Loader2 } from 'lucide-react';
 import { SqlImportPanel } from './sql-import-panel';
 
 const Toolbar = () => {
@@ -15,8 +15,22 @@ const Toolbar = () => {
     const autoLayout = useDiagramStore(state => state.autoLayout);
     const runValidation = useDiagramStore(state => state.runValidation);
     const clearDiagram = useDiagramStore(state => state.clearDiagram);
+    const createTableFromNL = useDiagramStore(state => state.createTableFromNL);
     const [showImportPanel, setShowImportPanel] = useState(false);
     const [showLayoutOptions, setShowLayoutOptions] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleAiCreateTable = async () => {
+        const promptText = prompt('Describe the table you want to create (e.g. "A students table with name, email, and birth date"):');
+        if (promptText?.trim()) {
+            setIsGenerating(true);
+            const success = await createTableFromNL(promptText);
+            setIsGenerating(false);
+            if (!success) {
+                alert('Failed to generate table. Make sure the AI server is running.');
+            }
+        }
+    };
 
     const openPerformancePanel = () => {
         const event = new CustomEvent('openPerformancePanel');
@@ -71,6 +85,20 @@ const Toolbar = () => {
                             className="bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center justify-center p-2 text-xs font-medium"
                         >
                             + Add Table
+                        </button>
+
+                        {/* AI Table Button */}
+                        <button
+                            onClick={handleAiCreateTable}
+                            disabled={isGenerating}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-all flex items-center justify-center gap-2 p-2 text-xs font-medium disabled:opacity-50"
+                        >
+                            {isGenerating ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                                <Sparkles className="w-3 h-3" />
+                            )}
+                            + AI Table
                         </button>
 
                         {/* New Project Button */}

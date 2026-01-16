@@ -4,16 +4,16 @@ import { memo, useState, useMemo } from 'react';
 import { useDiagramStore } from '@/store/use-diagram-store';
 import { cn } from '@/lib/utils';
 import { Column } from './nodes/table-node';
-import { 
-    Lightbulb, 
-    Link, 
-    Hash, 
-    Check, 
-    X, 
-    ChevronDown, 
+import {
+    Lightbulb,
+    Link,
+    Hash,
+    Check,
+    ChevronDown,
     ChevronUp,
     Target,
-    ArrowRight
+    ArrowRight,
+    Sparkles
 } from 'lucide-react';
 
 const SuggestionsPanel = memo(() => {
@@ -22,12 +22,16 @@ const SuggestionsPanel = memo(() => {
         indexes: false
     });
 
-    const { 
-        nodes, 
-        suggestForeignKeys, 
-        suggestIndexes, 
-        createSuggestedForeignKey, 
-        createIndex 
+    const {
+        nodes,
+        suggestForeignKeys,
+        suggestIndexes,
+        createSuggestedForeignKey,
+        createIndex,
+        aiSuggestions,
+        isFetchingAISuggestions,
+        fetchAISuggestions,
+        applyAISuggestion
     } = useDiagramStore();
 
     const fkSuggestions = useMemo(() => suggestForeignKeys(), [suggestForeignKeys]);
@@ -89,7 +93,68 @@ const SuggestionsPanel = memo(() => {
             <div className="flex items-center gap-2 mb-3">
                 <Lightbulb className="w-4 h-4 text-yellow-500" />
                 <div className="text-sm font-semibold text-foreground">Smart Suggestions</div>
+                <button
+                    onClick={() => fetchAISuggestions()}
+                    disabled={isFetchingAISuggestions}
+                    className={cn(
+                        "ml-auto text-[10px] bg-primary/10 hover:bg-primary/20 text-primary px-2 py-0.5 rounded transition-colors",
+                        isFetchingAISuggestions && "animate-pulse"
+                    )}
+                >
+                    {isFetchingAISuggestions ? 'Thinking...' : 'AI Refresh'}
+                </button>
             </div>
+
+            {/* AI Suggestions Section */}
+            {aiSuggestions.length > 0 && (
+                <div className="mb-4">
+                    <button
+                        onClick={() => toggleSection('ai')}
+                        className="flex items-center justify-between w-full text-left hover:bg-muted p-1 rounded transition-colors border-b border-primary/20 bg-primary/5"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="w-3 h-3 text-primary" />
+                            <span className="text-xs font-semibold text-primary">
+                                AI Optimizations ({aiSuggestions.length})
+                            </span>
+                        </div>
+                        {expandedSections.ai ? (
+                            <ChevronUp className="w-3 h-3 text-primary" />
+                        ) : (
+                            <ChevronDown className="w-3 h-3 text-primary" />
+                        )}
+                    </button>
+
+                    {expandedSections.ai && (
+                        <div className="mt-2 space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                            {aiSuggestions.map((suggestion) => (
+                                <div key={suggestion.id} className={cn(
+                                    "rounded p-2 text-xs border-l-2",
+                                    suggestion.severity === 'error' ? "bg-red-500/5 border-red-500" :
+                                        suggestion.severity === 'warning' ? "bg-yellow-500/5 border-yellow-500" :
+                                            "bg-blue-500/5 border-blue-500"
+                                )}>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="font-bold flex items-center gap-1">
+                                            {suggestion.title}
+                                        </span>
+                                        <button
+                                            onClick={() => applyAISuggestion(suggestion.id)}
+                                            className="text-primary hover:text-primary/80 transition-transform hover:scale-110"
+                                            title="Apply Suggestion"
+                                        >
+                                            <Check className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                                        {suggestion.details}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Foreign Key Suggestions */}
             {fkSuggestions.length > 0 && (

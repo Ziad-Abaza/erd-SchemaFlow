@@ -9,31 +9,24 @@ import ReactFlow, {
     Panel,
     ReactFlowProvider,
     useReactFlow,
-    useNodesState,
-    useEdgesState,
     SelectionMode,
-    Viewport,
     Node,
-    OnViewportChange,
+    NodeChange,
+    EdgeChange,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import './reactflow-enhancements.css';
 import { useDiagramStore } from '@/store/use-diagram-store';
 import { useTheme } from 'next-themes';
 import TableNode from './nodes/table-node';
-import JunctionTableNode from './nodes/junction-table-node';
-import RelationshipEdge from './edges/relationship-edge';
-import ManyToManyEdge from './edges/many-to-many-edge';
 import DatabaseRelationshipEdge from './edges/database-relationship-edge';
-import MarkerDefinitions from './edges/marker-definitions';
-import LayoutControls from './layout-controls';
-import SuggestionsPanel from './suggestions-panel';
 import Toolbar from './toolbar';
 import PropertyPanel from './property-panel';
 import BottomToolbar from './bottom-toolbar';
 import { ValidationPanel } from './validation-panel';
 import ExportPanel from './export-panel';
 import UnifiedToolbar from './unified-toolbar';
+import ChatPanel from './chat-panel';
 import { PerformancePanel } from './performance-panel';
 import { PerformanceEngine } from '@/lib/performance-engine';
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
@@ -55,7 +48,6 @@ const CanvasContent = () => {
     const [exportPanelOpen, setExportPanelOpen] = useState(false);
     const [performancePanelOpen, setPerformancePanelOpen] = useState(false);
     const [performanceEngine] = useState(() => new PerformanceEngine());
-    const [filteredNodes, setFilteredNodes] = useState<Node[]>([]);
     const {
         nodes,
         edges,
@@ -64,7 +56,6 @@ const CanvasContent = () => {
         onConnect,
         selectedNodes,
         selectedEdges,
-        selectNode,
         selectMultipleNodes,
         clearSelection,
         deleteSelectedNodes,
@@ -77,29 +68,30 @@ const CanvasContent = () => {
         loadFromLocal,
         validationResult,
         validationEnabled,
-        autoValidationEnabled,
         runValidation,
-        toggleValidation,
+        autoValidationEnabled,
         toggleAutoValidation,
         getValidationIssues
     } = useDiagramStore();
     const { theme, resolvedTheme } = useTheme();
     const [mounted, setMounted] = useState(false);
-    const { fitView, zoomIn, zoomOut, getZoom, getViewport } = useReactFlow();
+    const { getViewport } = useReactFlow();
     useEffect(() => {
         setMounted(true);
     }, []);
 
     // Selection monitoring to sync selectedNodes/selectedEdges
-    const selection = useMemo(() => ({
-        nodes: nodes.filter(n => n.selected).map(n => n.id),
-        edges: edges.filter(e => e.selected).map(e => e.id)
-    }), [nodes, edges]);
+    /*
+        const selection = useMemo(() => ({
+            nodes: nodes.filter(n => n.selected).map(n => n.id),
+            edges: edges.filter(e => e.selected).map(e => e.id)
+        }), [nodes, edges]);
+    */
 
     const currentTheme = mounted ? (theme === 'system' ? resolvedTheme : theme) : 'light';
     const isDark = currentTheme === 'dark';
 
-    const getNodeColor = (node: any) => {
+    const getNodeColor = (node: Node) => {
         if (node.type === 'table') {
             return isDark ? '#374151' : '#f3f4f6';
         }
@@ -119,12 +111,13 @@ const CanvasContent = () => {
     }, []);
 
     // Handle node change
-    const handleNodeChange = useCallback((changes: any[]) => {
+    // Handle node change
+    const handleNodeChange = useCallback((changes: NodeChange[]) => {
         onNodesChange(changes);
     }, [onNodesChange]);
 
     // Handle edge change
-    const handleEdgeChange = useCallback((changes: any[]) => {
+    const handleEdgeChange = useCallback((changes: EdgeChange[]) => {
         onEdgesChange(changes);
     }, [onEdgesChange]);
 
@@ -238,7 +231,6 @@ const CanvasContent = () => {
 
     return (
         <div className="w-full h-full bg-background transition-colors duration-300">
-            <MarkerDefinitions />
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -258,6 +250,105 @@ const CanvasContent = () => {
                 multiSelectionKeyCode="Control"
                 deleteKeyCode={null} // We handle delete manually
             >
+                {/* SVG Marker Definitions - must be inside ReactFlow */}
+                <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+                    <defs>
+                        {/* One marker (|) */}
+                        <marker
+                            id="marker-one"
+                            viewBox="0 0 10 10"
+                            refX="5"
+                            refY="5"
+                            markerWidth="6"
+                            markerHeight="6"
+                            orient="auto-start-reverse"
+                        >
+                            <path d="M 5 0 L 5 10" stroke="currentColor" strokeWidth="2" fill="none" />
+                        </marker>
+
+                        {/* Many marker (Crow's Foot) */}
+                        <marker
+                            id="marker-many"
+                            viewBox="0 0 10 10"
+                            refX="5"
+                            refY="5"
+                            markerWidth="8"
+                            markerHeight="8"
+                            orient="auto-start-reverse"
+                        >
+                            <path d="M 0 0 L 5 5 L 0 10 M 5 5 L 10 5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                        </marker>
+
+                        {/* Optional marker (O) */}
+                        <marker
+                            id="marker-optional"
+                            viewBox="0 0 10 10"
+                            refX="5"
+                            refY="5"
+                            markerWidth="6"
+                            markerHeight="6"
+                            orient="auto-start-reverse"
+                        >
+                            <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="white" />
+                        </marker>
+
+                        {/* One and only one (||) */}
+                        <marker
+                            id="marker-one-only"
+                            viewBox="0 0 12 10"
+                            refX="11"
+                            refY="5"
+                            markerWidth="8"
+                            markerHeight="6"
+                            orient="auto-start-reverse"
+                        >
+                            <path d="M 4 0 L 4 10 M 8 0 L 8 10" stroke="currentColor" strokeWidth="2" fill="none" />
+                        </marker>
+
+                        {/* Zero or many (O <) */}
+                        <marker
+                            id="marker-zero-many"
+                            viewBox="0 0 15 10"
+                            refX="14"
+                            refY="5"
+                            markerWidth="10"
+                            markerHeight="6"
+                            orient="auto-start-reverse"
+                        >
+                            <circle cx="4" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" fill="white" />
+                            <path d="M 8 0 L 15 5 L 8 10 M 15 5 L 15 5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                        </marker>
+
+                        {/* One or many (| <) */}
+                        <marker
+                            id="marker-one-many"
+                            viewBox="0 0 15 10"
+                            refX="14"
+                            refY="5"
+                            markerWidth="10"
+                            markerHeight="6"
+                            orient="auto-start-reverse"
+                        >
+                            <path d="M 4 0 L 4 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                            <path d="M 8 0 L 15 5 L 8 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                        </marker>
+
+                        {/* Zero or one (O |) */}
+                        <marker
+                            id="marker-zero-one"
+                            viewBox="0 0 15 10"
+                            refX="14"
+                            refY="5"
+                            markerWidth="10"
+                            markerHeight="6"
+                            orient="auto-start-reverse"
+                        >
+                            <circle cx="4" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" fill="white" />
+                            <path d="M 10 0 L 10 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                        </marker>
+                    </defs>
+                </svg>
+
                 <Background
                     gap={20}
                     color={isDark ? '#333' : '#ddd'}
@@ -337,6 +428,7 @@ const CanvasContent = () => {
                 onClose={() => setPerformancePanelOpen(false)}
             />
             <UnifiedToolbar />
+            <ChatPanel />
         </div>
     );
 };

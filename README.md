@@ -61,6 +61,13 @@ A powerful, feature-rich web-based ERD (Entity Relationship Diagram) editor buil
 - **Naming convention checks**
 - **Performance recommendations**
 
+### 🤖 AI-Powered Features
+- **AI Chat Assistant**: Conversational database design help with context awareness
+- **Intelligent Suggestions**: AI-driven schema optimizations and recommendations
+- **Natural Language Table Creation**: Create tables from natural language descriptions
+- **Database Monitoring Insights**: Performance analysis and optimization suggestions
+- **Smart Refactoring**: AI-assisted schema normalization and improvements
+
 ## 🛠️ Technology Stack
 
 - **Frontend**: Next.js 16.1.2 with App Router
@@ -74,11 +81,14 @@ A powerful, feature-rich web-based ERD (Entity Relationship Diagram) editor buil
 - **Data Fetching**: TanStack React Query 5.90.17
 - **Export**: html2canvas 1.4.1, jsPDF 4.0.0
 - **Theme**: next-themes 0.4.6
+- **AI Backend**: FastAPI with ctransformers
+- **AI Model**: Mistral-7B-Instruct (4-bit quantized)
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - Node.js 18+ 
+- Python 3.8+ (for AI features)
 - npm, yarn, pnpm, or bun
 
 ### Quick Start with Docker (Optional)
@@ -96,7 +106,7 @@ git clone <repository-url>
 cd erd-editor
 ```
 
-2. **Install dependencies**:
+2. **Install frontend dependencies**:
 ```bash
 npm install
 # or
@@ -107,7 +117,26 @@ pnpm install
 bun install
 ```
 
-3. **Run the development server**:
+3. **Set up AI server** (optional but recommended):
+```bash
+cd server
+pip install -r requirements.txt
+cd ..
+```
+
+4. **Download AI Model** (optional):
+The AI features use Mistral-7B-Instruct model. Place the model file in the project root or set the `MODEL_PATH` environment variable.
+
+5. **Run the development servers**:
+
+**Terminal 1 - AI Server** (optional, for AI features):
+```bash
+cd server
+python main.py
+# AI server will start on http://localhost:8000
+```
+
+**Terminal 2 - Frontend**:
 ```bash
 npm run dev
 # or
@@ -118,9 +147,11 @@ pnpm dev
 bun dev
 ```
 
-4. **Open your browser** and navigate to [http://localhost:3000](http://localhost:3000)
+6. **Open your browser** and navigate to [http://localhost:3000](http://localhost:3000)
 
-5. **Start designing** your database schema!
+7. **Start designing** your database schema!
+
+> **Note**: The application works without the AI server, but AI features will run in mock mode. For the full experience, run both servers.
 
 ## 📖 Usage Guide
 
@@ -151,6 +182,86 @@ bun dev
 - `Delete/Backspace`: Delete selected nodes
 - `Escape`: Clear selection
 
+## 🤖 AI Features Guide
+
+### Setting Up AI Features
+
+1. **Install Python dependencies**:
+```bash
+cd server
+pip install -r requirements.txt
+```
+
+2. **Download the AI Model**:
+- Get Mistral-7B-Instruct (4-bit quantized) from Hugging Face
+- Place the model file in the project root or specify path via `MODEL_PATH` environment variable
+
+3. **Start the AI Server**:
+```bash
+cd server
+python main.py
+```
+
+4. **Configure Frontend**:
+- Set `AI_SERVER_URL` environment variable (default: `http://localhost:8000`)
+- The frontend will automatically connect to the AI server
+
+### Using AI Features
+
+#### AI Chat Assistant
+- Access via the AI chat panel in the editor
+- Ask questions about database design, SQL, and optimization
+- Use commands like:
+  - `/create-table <description>` - Create tables from natural language
+  - `/suggest-indexes` - Get index recommendations
+  - `/explain-issues` - Understand validation problems
+  - `/generate-sql <table>` - Generate SQL for specific tables
+
+#### AI Suggestions
+- AI analyzes your current schema and provides intelligent recommendations
+- Suggestions include:
+  - Missing foreign keys
+  - Performance optimizations (indexes)
+  - Normalization improvements
+  - Naming convention fixes
+- Click "Apply" to automatically implement suggestions
+
+#### Natural Language Table Creation
+1. Click "AI Table" or use the chat command
+2. Describe your table: "Create a users table with email, name, and created_at"
+3. Review the AI-generated table structure
+4. Apply to your diagram
+
+#### Database Monitoring
+- Connect to your database for performance insights
+- AI analyzes query patterns and suggests optimizations
+- Get recommendations for indexing and schema improvements
+
+### AI Model Details
+
+- **Model**: Mistral-7B-Instruct-v0.2 (4-bit quantized)
+- **Framework**: ctransformers with Python backend
+- **Performance**: Optimized for CPU, GPU acceleration available
+- **Context**: Supports large context windows for complex schemas
+- **Privacy**: Runs locally, no data sent to external services
+
+### Troubleshooting AI Features
+
+**Model not loading**:
+- Check model path in `MODEL_PATH` environment variable
+- Ensure sufficient RAM (8GB+ recommended for 4-bit quantized model)
+- Verify Python dependencies are installed
+
+**Slow AI responses**:
+- Enable GPU acceleration with CUDA-compatible PyTorch
+- Reduce context size by limiting schema complexity
+- Use streaming responses for better UX
+
+**Mock mode active**:
+- AI server is not running or model failed to load
+- Start the AI server: `cd server && python main.py`
+- Check server logs for error messages
+
 ## 🏗️ Project Structure
 
 ```
@@ -158,7 +269,10 @@ src/
 ├── app/                    # Next.js App Router
 │   ├── layout.tsx         # Root layout with providers
 │   ├── globals.css        # Global styles
-│   └── favicon.ico        # App icon
+│   ├── favicon.ico        # App icon
+│   └── api/               # API routes
+│       └── ai/            # AI integration endpoints
+│           └── chat/      # AI chat proxy
 ├── components/
 │   ├── editor/            # ERD editor components
 │   │   ├── canvas.tsx     # Main diagram canvas
@@ -190,6 +304,12 @@ src/
 │   ├── export-engine.ts   # Export functionality
 │   └── store/
 │       └── use-diagram-store.ts # Zustand state management
+server/
+├── main.py               # FastAPI AI server
+├── requirements.txt      # Python dependencies
+└── run_server.bat       # Windows startup script
+AI/                      # AI model directory (optional)
+├── mistral-7b-instruct-v0.2.Q4_K_M.gguf  # AI model file
 ```
 
 ## 🔧 Advanced Features
@@ -273,6 +393,7 @@ We welcome contributions! Here's how to get started:
 - 🔧 **Performance optimizations** for large schemas
 - 📊 **Additional export formats** and integrations
 - 🔍 **Enhanced validation rules** and suggestions
+- 🤖 **AI features and model improvements**
 - 🌐 **Internationalization** support
 - 📱 **Mobile responsiveness** improvements
 
@@ -281,10 +402,17 @@ We welcome contributions! Here's how to get started:
 ### Available Scripts
 
 ```bash
+# Frontend
 npm run dev      # Start development server (http://localhost:3000)
 npm run build    # Build for production
 npm run start    # Start production server
 npm run lint     # Run ESLint
+
+# AI Server (Python)
+cd server
+python main.py   # Start AI server (http://localhost:8000)
+# Or on Windows:
+run_server.bat   # Start AI server with batch script
 ```
 
 ### Environment Setup

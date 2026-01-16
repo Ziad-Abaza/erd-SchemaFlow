@@ -17,6 +17,18 @@ import { LayoutEngine } from '@/lib/layout-engine';
 import { ValidationEngine, ValidationResult, ValidationIssue } from '@/lib/validation-engine';
 import { Column, TableIndex } from '@/components/editor/nodes/table-node';
 
+export interface AISuggestion {
+    id: string;
+    type: 'add_foreign_key' | 'add_index' | 'change_column_type' | 'rename_column' | 'normalize_table' | 'add_unique_constraint';
+    title: string;
+    details: string;
+    severity: 'info' | 'warning' | 'error';
+    actions: {
+        action: 'create_fk' | 'create_index' | 'update_column' | 'create_table' | 'rename_column';
+        payload: any;
+    }[];
+}
+
 interface DiagramData {
     nodes: Node[];
     edges: Edge[];
@@ -123,6 +135,19 @@ type DiagramStore = DiagramData & {
     resolveManyToMany: (edgeId: string) => boolean;
     // Optimized validation
     runValidationDebounced: () => void;
+    // AI operations
+    aiSuggestions: AISuggestion[];
+    isFetchingAISuggestions: boolean;
+    fetchAISuggestions: () => Promise<void>;
+    applyAISuggestion: (suggestionId: string) => void;
+    clearAISuggestions: () => void;
+    // Chat operations
+    chatMessages: { role: 'user' | 'assistant' | 'system', content: string }[];
+    isChatStreaming: boolean;
+    sendChatMessage: (content: string, options?: { includeSchema?: boolean, enableThinking?: boolean }) => Promise<void>;
+    clearChat: () => void;
+    // Create Table operation
+    createTableFromNL: (prompt: string) => Promise<boolean>;
 };
 
 let validationTimeout: NodeJS.Timeout | null = null;
@@ -181,6 +206,17 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
     validationEnabled: true,
     autoValidationEnabled: true,
     validationTimeout: null,
+
+    // AI state initial
+    aiSuggestions: [],
+    isFetchingAISuggestions: false,
+
+    // Chat initial state
+    chatMessages: [
+        { role: 'system', content: 'You are a senior database architect assistant. You help users design and optimize their Entity Relationship Diagrams.' }
+    ],
+    isChatStreaming: false,
+
     onNodesChange: (changes: NodeChange[]) => {
         const currentNodes = get().nodes;
         const newNodes = applyNodeChanges(changes, currentNodes);
@@ -1468,4 +1504,196 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
 
         return false;
     },
+    // AI Actions
+    fetchAISuggestions: async () => {
+        const { nodes, edges } = get();
+        set({ isFetchingAISuggestions: true });
+
+        try {
+            const erdState = {
+                nodes: nodes.map(n => ({
+                    id: n.id,
+                    label: n.data.label,
+                    columns: n.data.columns
+                })),
+                edges: edges.map(e => ({
+                    id: e.id,
+                    source: e.source,
+                    target: e.target,
+                    data: e.data
+                }))
+            };
+
+            const response = await fetch('/api/ai/suggestions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(erdState)
+            });
+
+            if (!response.ok) throw new Error('Failed to fetch AI suggestions');
+
+            const data = await response.json();
+            set({ aiSuggestions: data.suggestions || [], isFetchingAISuggestions: false });
+        } catch (error) {
+            console.error('Error fetching AI suggestions:', error);
+            set({ isFetchingAISuggestions: false });
+        }
+    },
+    applyAISuggestion: (suggestionId: string) => {
+        const { aiSuggestions, nodes } = get();
+        const suggestion = aiSuggestions.find(s => s.id === suggestionId);
+        if (!suggestion) return;
+
+        suggestion.actions.forEach(actionObj => {
+            const { action, payload } = actionObj;
+
+            switch (action) {
+                case 'create_fk':
+                    get().createForeignKey(
+                        payload.sourceTableId,
+                        payload.sourceColumnId,
+                        payload.targetTableId,
+                        payload.targetColumnId
+                    );
+                    break;
+                case 'create_index':
+                    get().addIndex(payload.tableId, {
+                        name: payload.name,
+                        columns: payload.columns,
+                        type: payload.unique ? 'UNIQUE' : (payload.type || 'INDEX')
+                    });
+                    break;
+                case 'update_column':
+                    get().updateColumnProperties(payload.tableId, payload.columnId, payload.properties);
+                    break;
+                case 'create_table':
+                    get().addTable({
+                        label: payload.label,
+                        columns: payload.columns
+                    });
+                    break;
+                case 'rename_column':
+                    get().renameColumn(payload.tableId, payload.columnId, payload.newName);
+                    break;
+            }
+        });
+
+        // Remove applied suggestion
+        set({ aiSuggestions: aiSuggestions.filter(s => s.id !== suggestionId) });
+
+        // Trigger validation
+        get().runValidation();
+    },
+    clearAISuggestions: () => {
+        set({ aiSuggestions: [] });
+    },
+    // Chat Actions
+    sendChatMessage: async (content, options = {}) => {
+        const { chatMessages, nodes } = get();
+        const newMessages = [...chatMessages, { role: 'user' as const, content }];
+
+        set({
+            chatMessages: newMessages,
+            isChatStreaming: true
+        });
+
+        try {
+            const messagesForAI = [...newMessages];
+
+            if (options.includeSchema) {
+                const schemaSummary = nodes.map(n =>
+                    `Table ${n.data.label}: ${n.data.columns.map((c: { name: string; type: string }) => `${c.name} (${c.type})`).join(', ')}`
+                ).join('\n');
+
+                messagesForAI.push({
+                    role: 'system',
+                    content: `Current schema context:\n${schemaSummary}`
+                });
+            }
+
+            const response = await fetch('/api/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: messagesForAI,
+                    enable_thinking: options.enableThinking
+                })
+            });
+
+            if (!response.ok) throw new Error('Chat request failed');
+
+            const reader = response.body?.getReader();
+            if (!reader) throw new Error('No reader found');
+
+            let assistantContent = '';
+            set({ chatMessages: [...newMessages, { role: 'assistant', content: '' }] });
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = new TextDecoder().decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.slice(6).trim();
+                        if (dataStr === '[DONE]') break;
+
+                        try {
+                            const data = JSON.parse(dataStr);
+                            const delta = data.choices[0].delta.content;
+                            if (delta) {
+                                assistantContent += delta;
+                                set(state => ({
+                                    chatMessages: state.chatMessages.map((msg, i) =>
+                                        i === state.chatMessages.length - 1
+                                            ? { ...msg, content: assistantContent }
+                                            : msg
+                                    )
+                                }));
+                            }
+                        } catch {
+                            // Ignore parse errors for partial chunks
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Chat error:', error);
+            set(state => ({
+                chatMessages: [...state.chatMessages, { role: 'assistant', content: 'Sorry, I encountered an error processing your request.' }]
+            }));
+        } finally {
+            set({ isChatStreaming: false });
+        }
+    },
+    clearChat: () => {
+        set({
+            chatMessages: [{ role: 'system', content: 'You are a senior database architect assistant. You help users design and optimize their Entity Relationship Diagrams.' }]
+        });
+    },
+    createTableFromNL: async (prompt) => {
+        const { nodes } = get();
+        try {
+            const schemaSummary = nodes.map(n =>
+                `Table ${n.data.label}: ${n.data.columns.map((c: { name: string; type: string }) => `${c.name} (${c.type})`).join(', ')}`
+            ).join('\n');
+
+            const response = await fetch('/api/ai/create-table', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, currentSchema: schemaSummary })
+            });
+
+            if (!response.ok) throw new Error('Create table request failed');
+
+            const tableData = await response.json();
+            get().addTable(tableData);
+            return true;
+        } catch (error) {
+            console.error('Create table error:', error);
+            return false;
+        }
+    }
 }));
