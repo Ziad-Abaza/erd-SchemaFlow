@@ -42,7 +42,7 @@ export type TableNodeData = {
     indexes?: TableIndex[];
 };
 
-const TableNode = ({ data, selected, id }: NodeProps<TableNodeData>) => {
+const TableNode = ({ data, selected, id, type }: NodeProps<TableNodeData>) => {
     const [editingTable, setEditingTable] = useState(false);
     const [editingColumn, setEditingColumn] = useState<string | null>(null);
     const [newColumnName, setNewColumnName] = useState('');
@@ -233,7 +233,10 @@ const TableNode = ({ data, selected, id }: NodeProps<TableNodeData>) => {
                 onContextMenu={handleTableContextMenu}
             >
                 {/* Table Header */}
-                <div className="bg-secondary/50 p-2 border-b border-border font-bold text-sm flex items-center justify-between rounded-t-md">
+                <div className={cn(
+                    "p-2 border-b border-border font-bold text-sm flex items-center justify-between rounded-t-md",
+                    type === 'junctionTable' ? "bg-purple-500/10 text-purple-700 dark:text-purple-300" : "bg-secondary/50"
+                )}>
                     {editingTable ? (
                         <div className="flex items-center gap-1 flex-1">
                             <input

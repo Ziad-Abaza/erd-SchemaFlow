@@ -85,7 +85,21 @@ const MarkerDefinitions = () => {
                     orient="auto-start-reverse"
                 >
                     <path d="M 4 0 L 4 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                    <path d="M 8 0 L 15 5 L 8 10 M 15 5 L 15 5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                    <path d="M 8 0 L 15 5 L 8 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                </marker>
+
+                {/* Zero or one (O |) */}
+                <marker
+                    id="marker-zero-one"
+                    viewBox="0 0 15 10"
+                    refX="14"
+                    refY="5"
+                    markerWidth="10"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                >
+                    <circle cx="4" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" fill="white" />
+                    <path d="M 10 0 L 10 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
                 </marker>
             </defs>
         </svg>

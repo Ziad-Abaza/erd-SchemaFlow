@@ -46,26 +46,35 @@ export function ValidationPanel({ isOpen, onClose }: ValidationPanelProps) {
     const [expandedIssues, setExpandedIssues] = useState<Set<string>>(new Set());
     const [autoFixing, setAutoFixing] = useState<string | null>(null);
     const [normalizationSuggestions, setNormalizationSuggestions] = useState<NormalizationSuggestion[]>([]);
-    
-    const { nodes, edges, selectNode, createIndex, updateColumnProperties } = useDiagramStore();
+
+    const nodes = useDiagramStore(state => state.nodes);
+    const edges = useDiagramStore(state => state.edges);
+    const selectNode = useDiagramStore(state => state.selectNode);
+    const createIndex = useDiagramStore(state => state.createIndex);
+    const updateColumnProperties = useDiagramStore(state => state.updateColumnProperties);
 
     useEffect(() => {
+        let timeout: NodeJS.Timeout;
         if (isOpen) {
-            runValidation();
+            // Debounce validation runs to prevent UI stutter during rapid changes
+            timeout = setTimeout(() => {
+                runValidation();
+            }, 500);
         }
+        return () => clearTimeout(timeout);
     }, [isOpen, nodes, edges]);
 
     const runValidation = () => {
         const result = ValidationEngine.validateDiagram(nodes, edges);
         setValidationResult(result);
-        
+
         const suggestions = ValidationEngine.generateNormalizationSuggestions(nodes, edges);
         setNormalizationSuggestions(suggestions);
     };
 
     const filteredIssues = useMemo(() => {
         if (!validationResult) return [];
-        
+
         return validationResult.issues.filter(issue => {
             const categoryMatch = selectedCategory === 'all' || issue.category === selectedCategory;
             const severityMatch = selectedSeverity === 'all' || issue.type === selectedSeverity;
@@ -87,7 +96,7 @@ export function ValidationPanel({ isOpen, onClose }: ValidationPanelProps) {
 
     const handleAutoFix = async (issue: ValidationIssue) => {
         if (!issue.autoFixable || !issue.fixAction) return;
-        
+
         setAutoFixing(issue.id);
         try {
             // Handle specific auto-fix actions
@@ -97,7 +106,7 @@ export function ValidationPanel({ isOpen, onClose }: ValidationPanelProps) {
                     updateColumnProperties(issue.tableId, issue.columnId, { isIndexed: true });
                 }
             }
-            
+
             // Run validation again after fix
             setTimeout(runValidation, 100);
         } finally {
@@ -226,7 +235,7 @@ export function ValidationPanel({ isOpen, onClose }: ValidationPanelProps) {
                                         const Icon = severityIcons[issue.type];
                                         const CategoryIcon = categoryIcons[issue.category];
                                         const isExpanded = expandedIssues.has(issue.id);
-                
+
                                         return (
                                             <div
                                                 key={issue.id}
@@ -250,7 +259,7 @@ export function ValidationPanel({ isOpen, onClose }: ValidationPanelProps) {
                                                                 </span>
                                                             </div>
                                                             <p className="text-sm mb-2">{issue.description}</p>
-                                                            
+
                                                             {isExpanded && (
                                                                 <div className="space-y-2 mt-3">
                                                                     {issue.suggestion && (
@@ -259,7 +268,7 @@ export function ValidationPanel({ isOpen, onClose }: ValidationPanelProps) {
                                                                             <div className="text-sm">{issue.suggestion}</div>
                                                                         </div>
                                                                     )}
-                                                                    
+
                                                                     {(issue.tableId || issue.columnId) && (
                                                                         <div className="flex gap-2">
                                                                             {issue.tableId && (
@@ -319,8 +328,8 @@ export function ValidationPanel({ isOpen, onClose }: ValidationPanelProps) {
                                                         <span className={cn(
                                                             "px-2 py-1 rounded text-xs font-medium",
                                                             suggestion.impact === 'high' ? 'bg-red-100 text-red-700' :
-                                                            suggestion.impact === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                                            'bg-green-100 text-green-700'
+                                                                suggestion.impact === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                                                    'bg-green-100 text-green-700'
                                                         )}>
                                                             {suggestion.impact} impact
                                                         </span>

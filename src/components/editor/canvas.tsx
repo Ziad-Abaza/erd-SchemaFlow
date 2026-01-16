@@ -21,7 +21,9 @@ import './reactflow-enhancements.css';
 import { useDiagramStore } from '@/store/use-diagram-store';
 import { useTheme } from 'next-themes';
 import TableNode from './nodes/table-node';
+import JunctionTableNode from './nodes/junction-table-node';
 import RelationshipEdge from './edges/relationship-edge';
+import ManyToManyEdge from './edges/many-to-many-edge';
 import DatabaseRelationshipEdge from './edges/database-relationship-edge';
 import MarkerDefinitions from './edges/marker-definitions';
 import LayoutControls from './layout-controls';
@@ -40,10 +42,12 @@ const CanvasContent = () => {
     // Memoize nodeTypes and edgeTypes to prevent re-creation warnings
     const nodeTypes = useMemo(() => ({
         table: TableNode,
+        junctionTable: TableNode,
     }), []);
 
     const edgeTypes = useMemo(() => ({
         relationship: DatabaseRelationshipEdge,
+        manyToMany: DatabaseRelationshipEdge,
         editableRelationship: DatabaseRelationshipEdge, // Alias for backward compatibility or data issues
     }), []);
 

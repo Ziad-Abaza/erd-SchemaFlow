@@ -18,7 +18,7 @@ interface DatabaseRelationshipEdgeData {
         targetTable: string;
         sourceColumn: string;
         targetColumn: string;
-        cardinality: '1:1' | '1:N' | 'N:M';
+        cardinality: '1:1' | '1:N' | '0:1' | '0:N' | 'N:M';
         isIdentifying?: boolean;
         label?: string;
     };
@@ -140,17 +140,21 @@ const DatabaseRelationshipEdge = ({
 
     const markerStart = useMemo(() => {
         switch (cardinality) {
-            case '1:1': return 'url(#marker-one)';
-            case '1:N': return 'url(#marker-one)';
+            case '1:1': return 'url(#marker-one-only)';
+            case '1:N': return 'url(#marker-one-only)';
+            case '0:1': return 'url(#marker-one-only)';
+            case '0:N': return 'url(#marker-one-only)';
             case 'N:M': return 'url(#marker-many)';
-            default: return 'url(#marker-one)';
+            default: return 'url(#marker-one-only)';
         }
     }, [cardinality]);
 
     const markerEnd = useMemo(() => {
         switch (cardinality) {
-            case '1:1': return 'url(#marker-one)';
+            case '1:1': return 'url(#marker-one-only)';
             case '1:N': return 'url(#marker-one-many)';
+            case '0:1': return 'url(#marker-zero-one)';
+            case '0:N': return 'url(#marker-zero-many)';
             case 'N:M': return 'url(#marker-many)';
             default: return 'url(#marker-one-many)';
         }

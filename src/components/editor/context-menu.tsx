@@ -12,7 +12,8 @@ import {
     KeyRound,
     Link,
     Fingerprint,
-    Hash
+    Hash,
+    ArrowRightLeft
 } from 'lucide-react';
 
 export type ContextMenuAction = {
@@ -145,7 +146,9 @@ export const TableContextMenu = memo(({
         deleteTable,
         duplicateTable,
         addColumn,
-        selectNode
+        selectNode,
+        nodes,
+        createJunctionTable
     } = useDiagramStore();
 
     const actions: ContextMenuAction[] = [
@@ -175,6 +178,50 @@ export const TableContextMenu = memo(({
             onClick: () => { }
         },
         {
+            id: 'create-many-to-many',
+            label: 'Create Many-to-Many Relationship',
+            icon: <ArrowRightLeft className="w-3 h-3" />,
+            onClick: () => {
+                // Get other tables for selection
+                const otherTables = nodes.filter(n => n.id !== tableId && n.type === 'table');
+                if (otherTables.length === 0) {
+                    alert('No other tables available for many-to-many relationship');
+                    return;
+                }
+                
+                const tableNames = otherTables.map(n => n.data.label);
+                const selection = prompt(
+                    `Select target table for many-to-many relationship:\n${tableNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}\n\nEnter number or table name:`,
+                    ''
+                );
+                
+                if (!selection?.trim()) return;
+                
+                let targetTable;
+                const selectedIndex = parseInt(selection.trim());
+                
+                if (selectedIndex >= 1 && selectedIndex <= tableNames.length) {
+                    targetTable = otherTables[selectedIndex - 1];
+                } else {
+                    targetTable = otherTables.find(n => 
+                        n.data.label.toLowerCase() === selection.trim().toLowerCase()
+                    );
+                }
+                
+                if (targetTable) {
+                    createJunctionTable(tableId, targetTable.id);
+                } else {
+                    alert('Invalid table selection');
+                }
+            }
+        },
+        {
+            id: 'separator2',
+            label: '',
+            separator: true,
+            onClick: () => { }
+        },
+        {
             id: 'add-column',
             label: 'Add Column',
             icon: <Plus className="w-3 h-3" />,
@@ -193,7 +240,7 @@ export const TableContextMenu = memo(({
             }
         },
         {
-            id: 'separator2',
+            id: 'separator3',
             label: '',
             separator: true,
             onClick: () => { }

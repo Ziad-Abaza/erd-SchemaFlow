@@ -1,13 +1,14 @@
-# ERD SchemaFlow - Advanced Entity Relationship Diagram Editor
+# ERD Design Engine - Advanced Entity Relationship Diagram Editor
 
 ![ERD Editor Overview](public/overview.jpeg)
 
 A powerful, feature-rich web-based ERD (Entity Relationship Diagram) editor built with Next.js, React Flow, and modern web technologies. Designed for database architects and developers to visualize, design, and export database schemas with comprehensive SQL support.
 
-![ERD Editor](https://img.shields.io/badge/Next.js-16.1.2-black?logo=next.js)
+![Next.js](https://img.shields.io/badge/Next.js-16.1.2-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
 ![React](https://img.shields.io/badge/React-19.2.3-blue?logo=react)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38B2AC?logo=tailwind-css)
+![React Flow](https://img.shields.io/badge/React%20Flow-11.11.4-blue?logo=react)
 
 ## ✨ Key Features
 
@@ -70,7 +71,9 @@ A powerful, feature-rich web-based ERD (Entity Relationship Diagram) editor buil
 - **Layout Algorithm**: Dagre.js 0.8.5
 - **SQL Parsing**: sql-parser-cst 0.38.2
 - **UI Components**: Radix UI, Lucide React
-- **Export**: html2canvas, jsPDF
+- **Data Fetching**: TanStack React Query 5.90.17
+- **Export**: html2canvas 1.4.1, jsPDF 4.0.0
+- **Theme**: next-themes 0.4.6
 
 ## 🚀 Getting Started
 
@@ -78,15 +81,22 @@ A powerful, feature-rich web-based ERD (Entity Relationship Diagram) editor buil
 - Node.js 18+ 
 - npm, yarn, pnpm, or bun
 
+### Quick Start with Docker (Optional)
+
+```bash
+docker build -t erd-editor .
+docker run -p 3000:3000 erd-editor
+```
+
 ### Installation
 
-1. Clone the repository:
+1. **Clone the repository**:
 ```bash
 git clone <repository-url>
 cd erd-editor
 ```
 
-2. Install dependencies:
+2. **Install dependencies**:
 ```bash
 npm install
 # or
@@ -97,7 +107,7 @@ pnpm install
 bun install
 ```
 
-3. Run the development server:
+3. **Run the development server**:
 ```bash
 npm run dev
 # or
@@ -108,7 +118,9 @@ pnpm dev
 bun dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+4. **Open your browser** and navigate to [http://localhost:3000](http://localhost:3000)
+
+5. **Start designing** your database schema!
 
 ## 📖 Usage Guide
 
@@ -151,7 +163,16 @@ src/
 │   ├── editor/            # ERD editor components
 │   │   ├── canvas.tsx     # Main diagram canvas
 │   │   ├── toolbar.tsx    # Editor toolbar
-│   │   ├── table-node.tsx # Custom table node component
+│   │   ├── unified-toolbar.tsx # Enhanced toolbar with controls
+│   │   ├── bottom-toolbar.tsx # Bottom action toolbar
+│   │   ├── layout-controls.tsx # Layout management
+│   │   ├── context-menu.tsx # Right-click context menu
+│   │   ├── export-button.tsx # Quick export functionality
+│   │   ├── nodes/         # Custom node components
+│   │   │   ├── table-node.tsx # Table node component
+│   │   │   └── group-node.tsx # Table grouping node
+│   │   ├── edges/         # Custom edge components
+│   │   │   └── database-relationship-edge.tsx # Relationship edges
 │   │   ├── property-panel.tsx # Sidebar property editor
 │   │   ├── validation-panel.tsx # Validation interface
 │   │   ├── sql-export-panel.tsx # SQL export interface
@@ -159,17 +180,16 @@ src/
 │   │   ├── export-panel.tsx # Export options panel
 │   │   ├── history-panel.tsx # Version history management
 │   │   ├── performance-panel.tsx # Performance monitoring
-│   │   └── suggestions-panel.tsx # AI suggestions
+│   │   ├── suggestions-panel.tsx # AI suggestions
+│   │   └── reactflow-enhancements.css # Custom React Flow styles
+│   ├── providers.tsx      # Global React providers
 │   └── ui/                # Reusable UI components
 ├── lib/
 │   ├── layout-engine.ts   # Dagre layout integration
 │   ├── performance-engine.ts # Performance optimization
 │   ├── export-engine.ts   # Export functionality
-│   ├── sql-generator.ts   # SQL generation
-│   ├── sql-parser.ts      # SQL parsing utilities
-│   └── validation-engine.ts # Schema validation
-└── store/
-    └── use-diagram-store.ts # Zustand state management
+│   └── store/
+│       └── use-diagram-store.ts # Zustand state management
 ```
 
 ## 🔧 Advanced Features
@@ -221,22 +241,60 @@ The parser supports multiple SQL dialects with automatic detection:
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions! Here's how to get started:
+
+### Development Workflow
+
+1. **Fork the repository** and create your feature branch
+2. **Set up your development environment** (see Getting Started)
+3. **Make your changes** following our code style guidelines
+4. **Test thoroughly**:
+   ```bash
+   npm run lint      # Check code quality
+   npm run build     # Ensure production build works
+   ```
+5. **Commit your changes** using conventional commits:
+   ```bash
+   git commit -m 'feat: add amazing feature'
+   ```
+6. **Push to your fork** and open a Pull Request
+
+### Code Style Guidelines
+
+- **TypeScript** for type safety and better DX
+- **ESLint** with Next.js configuration for code quality
+- **Tailwind CSS** for consistent styling
+- **Conventional Commits** for clear commit messages
+- **Component-first architecture** with clear separation of concerns
+
+### Areas for Contribution
+
+- 🎨 **UI/UX improvements** and new components
+- 🔧 **Performance optimizations** for large schemas
+- 📊 **Additional export formats** and integrations
+- 🔍 **Enhanced validation rules** and suggestions
+- 🌐 **Internationalization** support
+- 📱 **Mobile responsiveness** improvements
 
 ## 📝 Development
 
 ### Available Scripts
 
 ```bash
-npm run dev      # Start development server
+npm run dev      # Start development server (http://localhost:3000)
 npm run build    # Build for production
 npm run start    # Start production server
 npm run lint     # Run ESLint
 ```
+
+### Environment Setup
+
+The project uses modern tooling for optimal development experience:
+
+- **Babel React Compiler**: Experimental React compiler for performance
+- **ESLint with Next.js Config**: Code quality and consistency
+- **Tailwind CSS v4**: Latest utility-first CSS framework
+- **TypeScript**: Type safety and better developer experience
 
 ### Code Style
 
@@ -255,3 +313,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Dagre](https://github.com/dagrejs/dagre) for automatic layout algorithms
 - [Next.js](https://nextjs.org/) for the excellent React framework
 - [Tailwind CSS](https://tailwindcss.com/) for the utility-first CSS framework
+- [Radix UI](https://www.radix-ui.com/) for accessible UI primitives
+- [TanStack Query](https://tanstack.com/query) for server-state management
+- [Lucide](https://lucide.dev/) for beautiful icon sets
+
+## 📞 Support & Community
+
+- 🐛 **Report Issues**: [GitHub Issues](https://github.com/your-username/erd-editor/issues)
+- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/your-username/erd-editor/discussions)
+- 📖 **Documentation**: [Wiki](https://github.com/your-username/erd-editor/wiki)
+- 🎯 **Roadmap**: Check our [Project Board](https://github.com/your-username/erd-editor/projects)
+
+---
+
+<div align="center">
+  <p>Made with ❤️ by the database community</p>
+  <p><strong>Star ⭐ this repo if it helped you design better databases!</strong></p>
+</div>

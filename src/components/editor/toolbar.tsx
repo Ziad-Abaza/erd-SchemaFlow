@@ -7,7 +7,14 @@ import { Download, FileImage, FileText, Upload, Database, Layout, ChevronDown, A
 import { SqlImportPanel } from './sql-import-panel';
 
 const Toolbar = () => {
-    const { selectedNodes, selectedEdges, deleteSelectedNodes, addTable, detectRelationships, autoLayout, runValidation, clearDiagram } = useDiagramStore();
+    const selectedNodes = useDiagramStore(state => state.selectedNodes);
+    const selectedEdges = useDiagramStore(state => state.selectedEdges);
+    const deleteSelectedNodes = useDiagramStore(state => state.deleteSelectedNodes);
+    const addTable = useDiagramStore(state => state.addTable);
+    const detectRelationships = useDiagramStore(state => state.detectRelationships);
+    const autoLayout = useDiagramStore(state => state.autoLayout);
+    const runValidation = useDiagramStore(state => state.runValidation);
+    const clearDiagram = useDiagramStore(state => state.clearDiagram);
     const [showImportPanel, setShowImportPanel] = useState(false);
     const [showLayoutOptions, setShowLayoutOptions] = useState(false);
 
