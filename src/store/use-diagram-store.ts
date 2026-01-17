@@ -152,6 +152,119 @@ type DiagramStore = DiagramData & {
 
 let validationTimeout: NodeJS.Timeout | null = null;
 
+/**
+ * Calculate smart orthogonal path points for an edge to avoid overlapping with other nodes
+ * This creates an L-shaped or Z-shaped path that avoids visual clutter
+ */
+function estimateNodeWidth(node: Node): number {
+    const baseWidth = 200;
+    const columnWidth = 150;
+    if (node.type === 'table' && node.data?.columns) {
+        const maxColumns = Math.max(3, node.data.columns.length);
+        return Math.max(baseWidth, columnWidth + maxColumns * 30);
+    }
+    return baseWidth;
+}
+
+function estimateNodeHeight(node: Node): number {
+    const headerHeight = 40;
+    const rowHeight = 32;
+    if (node.type === 'table' && node.data?.columns) {
+        return headerHeight + node.data.columns.length * rowHeight + 20;
+    }
+    return 200;
+}
+
+function calculateSmartOrthogonalPath(sourceNode: Node, targetNode: Node, allNodes: Node[]): { x: number; y: number }[] {
+    const sourceWidth = estimateNodeWidth(sourceNode);
+    const sourceHeight = estimateNodeHeight(sourceNode);
+    const targetWidth = estimateNodeWidth(targetNode);
+    const targetHeight = estimateNodeHeight(targetNode);
+    
+    const sourceX = sourceNode.position.x + sourceWidth / 2;
+    const sourceY = sourceNode.position.y + sourceHeight / 2;
+    const targetX = targetNode.position.x + targetWidth / 2;
+    const targetY = targetNode.position.y + targetHeight / 2;
+
+    const dx = targetX - sourceX;
+    const dy = targetY - sourceY;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+
+    // If nodes are close together, no intermediate points needed
+    if (absDx < 250 && absDy < 250) {
+        return [];
+    }
+
+    const pathPoints: { x: number; y: number }[] = [];
+    const OFFSET = 50; // Offset distance from nodes to avoid overlap
+    const MIN_DISTANCE = 100; // Minimum distance between segments
+
+    // Calculate L-shaped path: horizontal first, then vertical (or vice versa)
+    // Choose the direction that avoids other nodes better
+    
+    // Option 1: Horizontal first (right/left, then down/up)
+    const midX = (sourceX + targetX) / 2;
+    const midY1 = sourceY + (dy > 0 ? OFFSET : -OFFSET);
+    const midX2 = targetX + (dx > 0 ? -OFFSET : OFFSET);
+    const midY2 = targetY;
+
+    // Option 2: Vertical first (down/up, then right/left)
+    const midX1_v = sourceX;
+    const midY1_v = (sourceY + targetY) / 2;
+    const midX2_v = targetX;
+    const midY2_v = targetY + (dy > 0 ? -OFFSET : OFFSET);
+
+    // Choose the path that avoids other nodes
+    let path1Collisions = 0;
+    let path2Collisions = 0;
+
+    // Simple collision detection: check if intermediate points are too close to other nodes
+    for (const node of allNodes) {
+        if (node.id === sourceNode.id || node.id === targetNode.id) continue;
+        
+        const nodeWidth = estimateNodeWidth(node);
+        const nodeHeight = estimateNodeHeight(node);
+        const nodeX = node.position.x + nodeWidth / 2;
+        const nodeY = node.position.y + nodeHeight / 2;
+
+        // Check path 1 intermediate points
+        const dist1_1 = Math.sqrt(Math.pow(midX - nodeX, 2) + Math.pow(midY1 - nodeY, 2));
+        const dist1_2 = Math.sqrt(Math.pow(midX2 - nodeX, 2) + Math.pow(midY2 - nodeY, 2));
+        if (dist1_1 < (nodeWidth + nodeHeight) / 2 + 30 || dist1_2 < (nodeWidth + nodeHeight) / 2 + 30) {
+            path1Collisions++;
+        }
+
+        // Check path 2 intermediate points
+        const dist2_1 = Math.sqrt(Math.pow(midX1_v - nodeX, 2) + Math.pow(midY1_v - nodeY, 2));
+        const dist2_2 = Math.sqrt(Math.pow(midX2_v - nodeX, 2) + Math.pow(midY2_v - nodeY, 2));
+        if (dist2_1 < (nodeWidth + nodeHeight) / 2 + 30 || dist2_2 < (nodeWidth + nodeHeight) / 2 + 30) {
+            path2Collisions++;
+        }
+    }
+
+    // Use the path with fewer collisions, or horizontal-first by default
+    if (path2Collisions < path1Collisions && absDy > absDx) {
+        // Vertical first
+        if (absDy > MIN_DISTANCE) {
+            pathPoints.push({ x: midX1_v, y: midY1_v });
+        }
+        if (absDx > MIN_DISTANCE) {
+            pathPoints.push({ x: midX2_v, y: midY2_v });
+        }
+    } else {
+        // Horizontal first (default for most cases)
+        if (absDx > MIN_DISTANCE) {
+            pathPoints.push({ x: midX, y: midY1 });
+        }
+        if (absDy > MIN_DISTANCE) {
+            pathPoints.push({ x: midX2, y: midY2 });
+        }
+    }
+
+    return pathPoints;
+}
+
 export const useDiagramStore = create<DiagramStore>((set, get) => ({
     // Initial state
     nodes: [
@@ -491,9 +604,19 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
             position: { x: Math.random() * 400 + 100, y: Math.random() * 300 + 100 },
             data: {
                 label: table.label,
-                columns: table.columns || [
-                    { id: 'c1', name: 'id', type: 'uuid', isPrimaryKey: true, isForeignKey: false, isNullable: false }
-                ]
+                columns: (table.columns && table.columns.length > 0
+                    ? table.columns.map((col, idx) => ({
+                        ...col,
+                        id: col.id ?? `c${Date.now()}_${idx}`
+                    }))
+                    : [{
+                        id: `c${Date.now()}_pk`,
+                        name: 'id',
+                        type: 'uuid',
+                        isPrimaryKey: true,
+                        isForeignKey: false,
+                        isNullable: false
+                    }])
             }
         };
         set({ nodes: [...nodes, newTable] });
@@ -713,6 +836,9 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
             return node;
         });
 
+        // Calculate smart orthogonal path points to avoid overlapping with other nodes/edges
+        const pathPoints = calculateSmartOrthogonalPath(parentNode, childNode, nodes);
+
         const newEdge: Edge = {
             id: edgeId,
             source: parentNode.id,
@@ -730,6 +856,7 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
                     isIdentifying: true,
                 },
                 isValid: true,
+                pathPoints: pathPoints,
             },
             animated: false,
         };
@@ -1689,7 +1816,85 @@ export const useDiagramStore = create<DiagramStore>((set, get) => ({
             if (!response.ok) throw new Error('Create table request failed');
 
             const tableData = await response.json();
+
+            const prevNodes = get().nodes;
             get().addTable(tableData);
+
+            const nextNodes = get().nodes;
+            const newNode = nextNodes.find(n => !prevNodes.some(p => p.id === n.id) && n.data?.label === tableData?.label);
+
+            const suggestions = Array.isArray(tableData?.suggested_relationships)
+                ? tableData.suggested_relationships
+                : [];
+
+            // Also detect relationships using RelationshipDetector for any foreign key columns
+            if (newNode) {
+                const detectedRelationships = RelationshipDetector.detectRelationships(
+                    nextNodes.filter(n => n.type === 'table') as any[]
+                );
+
+                // Add detected relationships that involve the new table
+                const newTableRelationships = detectedRelationships.filter(rel => 
+                    rel.sourceTable.toLowerCase() === newNode.data.label.toLowerCase() ||
+                    rel.targetTable.toLowerCase() === newNode.data.label.toLowerCase()
+                );
+
+                // Convert detected relationships to suggestions format
+                newTableRelationships.forEach(rel => {
+                    const existingSuggestion = suggestions.find((s: any) =>
+                        s.from_table === rel.sourceTable &&
+                        s.from_column === rel.sourceColumn &&
+                        s.to_table === rel.targetTable &&
+                        s.to_column === rel.targetColumn
+                    );
+                    if (!existingSuggestion) {
+                        suggestions.push({
+                            from_table: rel.sourceTable,
+                            from_column: rel.sourceColumn,
+                            to_table: rel.targetTable,
+                            to_column: rel.targetColumn,
+                            relationship_type: rel.cardinality === '1:N' || rel.cardinality === '1:1' ? 'one_to_many' : 'many_to_many',
+                            confidence: 'high',
+                            reason: 'Automatically detected from foreign key column pattern'
+                        });
+                    }
+                });
+            }
+
+            if (newNode && suggestions.length > 0) {
+                const tableIdByLabel = new Map(nextNodes.map(n => [String(n.data.label), n.id]));
+                const getColumnIdByName = (tableId: string, colName: string) => {
+                    const node = nextNodes.find(n => n.id === tableId);
+                    const col = node?.data?.columns?.find((c: Column) => c.name === colName);
+                    return col?.id;
+                };
+
+                suggestions
+                    .filter((s: any) => {
+                        const conf = String(s?.confidence ?? 'medium').toLowerCase();
+                        return conf === 'high' || conf === 'medium';
+                    })
+                    .forEach((s: any) => {
+                        const relType = String(s?.relationship_type ?? '').toLowerCase();
+                        if (relType !== 'one_to_many' && relType !== '1:n' && relType !== '1:1') return;
+
+                        const fromTable = String(s?.from_table ?? '');
+                        const toTable = String(s?.to_table ?? '');
+                        const fromColumn = String(s?.from_column ?? '');
+                        const toColumn = String(s?.to_column ?? '');
+                        if (!fromTable || !toTable || !fromColumn || !toColumn) return;
+
+                        const childTableId = tableIdByLabel.get(fromTable);
+                        const parentTableId = tableIdByLabel.get(toTable);
+                        if (!childTableId || !parentTableId) return;
+
+                        const childColumnId = getColumnIdByName(childTableId, fromColumn);
+                        const parentColumnId = getColumnIdByName(parentTableId, toColumn);
+                        if (!childColumnId || !parentColumnId) return;
+
+                        get().createForeignKey(childTableId, childColumnId, parentTableId, parentColumnId);
+                    });
+            }
             return true;
         } catch (error) {
             console.error('Create table error:', error);

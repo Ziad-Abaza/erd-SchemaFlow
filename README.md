@@ -229,8 +229,15 @@ python main.py
 #### Natural Language Table Creation
 1. Click "AI Table" or use the chat command
 2. Describe your table: "Create a users table with email, name, and created_at"
-3. Review the AI-generated table structure
+3. Review the AI-generated table structure and suggested relationships
 4. Apply to your diagram
+
+#### Automatic Relationship Detection
+- **During Table Creation**: AI automatically suggests foreign key relationships when creating new tables
+- **Post-Creation Analysis**: Run relationship detection on existing tables to find missing connections
+- **Smart Pattern Recognition**: Identifies common patterns like `user_id`, `category_id`, `created_by`
+- **Confidence Scoring**: Each suggestion includes confidence level (high/medium/low) with reasoning
+- **One-Click Application**: Apply suggested relationships directly to your diagram
 
 #### Database Monitoring
 - Connect to your database for performance insights
@@ -242,7 +249,7 @@ python main.py
 - **Model**: Mistral-7B-Instruct-v0.2 (4-bit quantized)
 - **Framework**: ctransformers with Python backend
 - **Performance**: Optimized for CPU, GPU acceleration available
-- **Context**: Supports large context windows for complex schemas
+- **Context**: 512 token limit with intelligent truncation for large schemas
 - **Privacy**: Runs locally, no data sent to external services
 
 ### Troubleshooting AI Features
@@ -251,6 +258,12 @@ python main.py
 - Check model path in `MODEL_PATH` environment variable
 - Ensure sufficient RAM (8GB+ recommended for 4-bit quantized model)
 - Verify Python dependencies are installed
+
+**Context length exceeded errors**:
+- The AI model has a 512 token limit
+- Large schemas are automatically truncated to fit within context limits
+- Most important tables and columns are prioritized in truncation
+- Consider breaking down very large schemas into smaller chunks
 
 **Slow AI responses**:
 - Enable GPU acceleration with CUDA-compatible PyTorch
@@ -272,7 +285,10 @@ src/
 │   ├── favicon.ico        # App icon
 │   └── api/               # API routes
 │       └── ai/            # AI integration endpoints
-│           └── chat/      # AI chat proxy
+│           ├── chat/      # AI chat proxy
+│           ├── create-table/ # AI table creation
+│           ├── auto-create-relationships/ # Automatic relationship detection
+│           └── suggestions/ # AI suggestions
 ├── components/
 │   ├── editor/            # ERD editor components
 │   │   ├── canvas.tsx     # Main diagram canvas
