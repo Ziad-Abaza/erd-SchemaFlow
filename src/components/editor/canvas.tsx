@@ -20,14 +20,15 @@ import { useDiagramStore } from '@/store/use-diagram-store';
 import { useTheme } from 'next-themes';
 import TableNode from './nodes/table-node';
 import DatabaseRelationshipEdge from './edges/database-relationship-edge';
-import Toolbar from './toolbar';
+import UnifiedSidebar from './unified-sidebar';
+import StatusBar from './status-bar';
 import PropertyPanel from './property-panel';
-import BottomToolbar from './bottom-toolbar';
+import ChatPanel from './chat-panel';
 import { ValidationPanel } from './validation-panel';
 import ExportPanel from './export-panel';
-import UnifiedToolbar from './unified-toolbar';
-import ChatPanel from './chat-panel';
 import { PerformancePanel } from './performance-panel';
+import HistoryPanel from './history-panel';
+import { SqlImportPanel } from './sql-import-panel';
 import { PerformanceEngine } from '@/lib/performance-engine';
 import { AlertTriangle, CheckCircle, XCircle, Sparkles, Loader2 } from 'lucide-react';
 
@@ -47,14 +48,8 @@ const CanvasContent = () => {
     const [validationPanelOpen, setValidationPanelOpen] = useState(false);
     const [exportPanelOpen, setExportPanelOpen] = useState(false);
     const [performancePanelOpen, setPerformancePanelOpen] = useState(false);
-    const [performanceEngine] = useState(() => new PerformanceEngine());
-    const [aiStatusSummary, setAiStatusSummary] = useState<{
-        overall: 'healthy' | 'warning' | 'critical';
-        score: number;
-        insights: Array<{ category: string; status: string; recommendation: string }>;
-        nextSteps: string[];
-    } | null>(null);
-    const [isLoadingAiSummary, setIsLoadingAiSummary] = useState(false);
+    const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
+    const [importPanelOpen, setImportPanelOpen] = useState(false);
     const {
         nodes,
         edges,
@@ -105,17 +100,29 @@ const CanvasContent = () => {
         return isDark ? '#555' : '#eee';
     };
 
-    // Performance monitoring
-    useEffect(() => {
-        performanceEngine.startRenderCycle();
-    });
-
-    // Event listeners for panels
+    // Event listeners for modal panels
     useEffect(() => {
         const openPerformancePanel = () => setPerformancePanelOpen(true);
+        const openExportPanel = () => setExportPanelOpen(true);
+        const openImportPanel = () => setImportPanelOpen(true);
+        const openValidationPanel = () => setValidationPanelOpen(true);
+        const openHistoryPanel = () => setHistoryPanelOpen(true);
+
         window.addEventListener('openPerformancePanel', openPerformancePanel);
-        return () => window.removeEventListener('openPerformancePanel', openPerformancePanel);
+        window.addEventListener('openExportPanel', openExportPanel);
+        window.addEventListener('openImportPanel', openImportPanel);
+        window.addEventListener('openValidationPanel', openValidationPanel);
+        window.addEventListener('openHistoryPanel', openHistoryPanel);
+
+        return () => {
+            window.removeEventListener('openPerformancePanel', openPerformancePanel);
+            window.removeEventListener('openExportPanel', openExportPanel);
+            window.removeEventListener('openImportPanel', openImportPanel);
+            window.removeEventListener('openValidationPanel', openValidationPanel);
+            window.removeEventListener('openHistoryPanel', openHistoryPanel);
+        };
     }, []);
+
 
     // Handle node change
     // Handle node change
@@ -177,15 +184,6 @@ const CanvasContent = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [handleKeyDown]);
 
-    // Handle export panel opening event
-    useEffect(() => {
-        const handleOpenExportPanel = () => {
-            setExportPanelOpen(true);
-        };
-
-        window.addEventListener('openExportPanel', handleOpenExportPanel);
-        return () => window.removeEventListener('openExportPanel', handleOpenExportPanel);
-    }, []);
 
     // Auto-save functionality
     useEffect(() => {
@@ -216,61 +214,11 @@ const CanvasContent = () => {
         }
     }, [addTable]);
 
-    // Get validation status for display
-    const validationIssues = getValidationIssues();
-    const hasErrors = validationIssues.some(issue => issue.type === 'error');
-    const hasWarnings = validationIssues.some(issue => issue.type === 'warning');
-    const validationScore = validationResult?.score || 100;
-
-    const getValidationStatusIcon = () => {
-        if (!validationEnabled) return null;
-        if (hasErrors) return <XCircle className="w-4 h-4 text-red-500" />;
-        if (hasWarnings) return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-    };
-
-    const getValidationStatusText = () => {
-        if (!validationEnabled) return 'Validation disabled';
-        if (hasErrors) return `${validationIssues.filter(i => i.type === 'error').length} errors`;
-        if (hasWarnings) return `${validationIssues.filter(i => i.type === 'warning').length} warnings`;
-        return 'Valid';
-    };
-
-    const fetchAIStatusSummary = async () => {
-        setIsLoadingAiSummary(true);
-        try {
-            const performanceMetrics = performanceEngine.getMetrics();
-            const response = await fetch('/api/ai/status-summary', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    nodes,
-                    edges,
-                    validationResults: validationIssues,
-                    performanceMetrics
-                })
-            });
-
-            const result = await response.json();
-            if (result.success && result.data) {
-                setAiStatusSummary(result.data);
-            }
-        } catch (error: any) {
-            console.error('AI Status Summary Error:', error);
-        } finally {
-            setIsLoadingAiSummary(false);
-        }
-    };
-
-    // Fetch AI summary when validation results change
-    useEffect(() => {
-        if (validationEnabled && validationResult) {
-            fetchAIStatusSummary();
-        }
-    }, [validationResult, validationEnabled, nodes, edges]);
 
     return (
-        <div className="w-full h-full bg-background transition-colors duration-300">
+        <div className="w-full h-full bg-background transition-colors duration-300 overflow-hidden">
+            {/* Status Bar */}
+            <StatusBar />
             {/* SVG Marker Definitions - Global scope */}
             <svg style={{ position: 'absolute', width: 0, height: 0, zIndex: -1 }}>
                 <defs>
@@ -356,238 +304,164 @@ const CanvasContent = () => {
                 </defs>
             </svg>
 
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={handleNodeChange}
-                onEdgesChange={handleEdgeChange}
-                onConnect={onConnect}
-                nodeTypes={nodeTypes}
-                edgeTypes={edgeTypes}
-                fitView
-                className="bg-background"
-                minZoom={0.1}
-                maxZoom={4}
-                snapToGrid={true}
-                snapGrid={[20, 20]}
-                onlyRenderVisibleElements={true}
-                selectionMode={SelectionMode.Partial}
-                multiSelectionKeyCode="Control"
-                deleteKeyCode={null} // We handle delete manually
-            >
-                {/* SVG Marker Definitions - must be inside ReactFlow */}
-                <svg style={{ position: 'absolute', width: 0, height: 0 }}>
-                    <defs>
-                        {/* One marker (|) */}
-                        <marker
-                            id="marker-one"
-                            viewBox="0 0 10 10"
-                            refX="5"
-                            refY="5"
-                            markerWidth="6"
-                            markerHeight="6"
-                            orient="auto-start-reverse"
-                        >
-                            <path d="M 5 0 L 5 10" stroke="currentColor" strokeWidth="2" fill="none" />
-                        </marker>
-
-                        {/* Many marker (Crow's Foot) */}
-                        <marker
-                            id="marker-many"
-                            viewBox="0 0 10 10"
-                            refX="5"
-                            refY="5"
-                            markerWidth="8"
-                            markerHeight="8"
-                            orient="auto-start-reverse"
-                        >
-                            <path d="M 0 0 L 5 5 L 0 10 M 5 5 L 10 5" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                        </marker>
-
-                        {/* Optional marker (O) */}
-                        <marker
-                            id="marker-optional"
-                            viewBox="0 0 10 10"
-                            refX="5"
-                            refY="5"
-                            markerWidth="6"
-                            markerHeight="6"
-                            orient="auto-start-reverse"
-                        >
-                            <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="white" />
-                        </marker>
-
-                        {/* One and only one (||) */}
-                        <marker
-                            id="marker-one-only"
-                            viewBox="0 0 12 10"
-                            refX="11"
-                            refY="5"
-                            markerWidth="8"
-                            markerHeight="6"
-                            orient="auto-start-reverse"
-                        >
-                            <path d="M 4 0 L 4 10 M 8 0 L 8 10" stroke="currentColor" strokeWidth="2" fill="none" />
-                        </marker>
-
-                        {/* Zero or many (O <) */}
-                        <marker
-                            id="marker-zero-many"
-                            viewBox="0 0 15 10"
-                            refX="14"
-                            refY="5"
-                            markerWidth="10"
-                            markerHeight="6"
-                            orient="auto-start-reverse"
-                        >
-                            <circle cx="4" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" fill="white" />
-                            <path d="M 8 0 L 15 5 L 8 10 M 15 5 L 15 5" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                        </marker>
-
-                        {/* One or many (| <) */}
-                        <marker
-                            id="marker-one-many"
-                            viewBox="0 0 15 10"
-                            refX="14"
-                            refY="5"
-                            markerWidth="10"
-                            markerHeight="6"
-                            orient="auto-start-reverse"
-                        >
-                            <path d="M 4 0 L 4 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                            <path d="M 8 0 L 15 5 L 8 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                        </marker>
-
-                        {/* Zero or one (O |) */}
-                        <marker
-                            id="marker-zero-one"
-                            viewBox="0 0 15 10"
-                            refX="14"
-                            refY="5"
-                            markerWidth="10"
-                            markerHeight="6"
-                            orient="auto-start-reverse"
-                        >
-                            <circle cx="4" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" fill="white" />
-                            <path d="M 10 0 L 10 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                        </marker>
-                    </defs>
-                </svg>
-
-                <Background
-                    gap={20}
-                    color={isDark ? '#333' : '#ddd'}
-                    variant={BackgroundVariant.Dots}
-                />
-                <Controls
-                    className="bg-card/95 backdrop-blur-sm border-border shadow-lg rounded-lg overflow-hidden transition-all duration-200 hover:shadow-xl"
-                    showZoom={true}
-                    showFitView={true}
-                    showInteractive={false}
-                    position="bottom-left"
-                />
-                <MiniMap
-                    nodeColor={getNodeColor}
-                    maskColor={isDark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)'}
-                    style={{
-                        backgroundColor: isDark ? '#111' : '#fff',
-                        height: 180,
-                        width: 250,
-                        border: '1px solid',
-                        borderColor: isDark ? '#374151' : '#e5e7eb',
-                    }}
-                    className="rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105"
-                    pannable
-                    zoomable
-                    position="bottom-right"
-                />
-
-                {/* Validation Status Panel */}
-                {validationEnabled && (
-                    <Panel position="top-left" className="bg-card/95 backdrop-blur-sm border border-border rounded-lg shadow-lg p-3 max-w-md">
-                        <div className="flex items-center gap-2 text-sm mb-2">
-                            {getValidationStatusIcon()}
-                            <span className="font-medium">{getValidationStatusText()}</span>
-                            <span className="text-muted-foreground">Score: {validationScore}</span>
-                            {aiStatusSummary && (
-                                <span className={`text-xs px-2 py-0.5 rounded ${
-                                    aiStatusSummary.overall === 'healthy' ? 'bg-green-100 text-green-700' :
-                                    aiStatusSummary.overall === 'warning' ? 'bg-yellow-100 text-yellow-700' :
-                                    'bg-red-100 text-red-700'
-                                }`}>
-                                    AI: {aiStatusSummary.overall} ({aiStatusSummary.score})
-                                </span>
-                            )}
-                            <button
-                                onClick={() => setValidationPanelOpen(true)}
-                                className="px-2 py-1 bg-primary text-primary-foreground rounded text-xs hover:bg-primary/90"
+            {/* Main Canvas Area with Safe Zone */}
+            <div className="pt-12 pb-8 pl-8 pr-8 h-full">
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={handleNodeChange}
+                    onEdgesChange={handleEdgeChange}
+                    onConnect={onConnect}
+                    nodeTypes={nodeTypes}
+                    edgeTypes={edgeTypes}
+                    fitView
+                    className="bg-background"
+                    minZoom={0.1}
+                    maxZoom={4}
+                    snapToGrid={true}
+                    snapGrid={[20, 20]}
+                    onlyRenderVisibleElements={true}
+                    selectionMode={SelectionMode.Partial}
+                    multiSelectionKeyCode="Control"
+                    deleteKeyCode={null} // We handle delete manually
+                >
+                    {/* SVG Marker Definitions - must be inside ReactFlow */}
+                    <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+                        <defs>
+                            {/* One marker (|) */}
+                            <marker
+                                id="marker-one"
+                                viewBox="0 0 10 10"
+                                refX="5"
+                                refY="5"
+                                markerWidth="6"
+                                markerHeight="6"
+                                orient="auto-start-reverse"
                             >
-                                Details
-                            </button>
-                        </div>
+                                <path d="M 5 0 L 5 10" stroke="currentColor" strokeWidth="2" fill="none" />
+                            </marker>
 
-                        {/* AI Insights */}
-                        {aiStatusSummary && aiStatusSummary.insights && aiStatusSummary.insights.length > 0 && (
-                            <div className="mb-2 space-y-1">
-                                {aiStatusSummary.insights.slice(0, 2).map((insight, idx) => (
-                                    <div key={idx} className="text-xs text-muted-foreground">
-                                        <span className="font-medium">{insight.category}:</span> {insight.status}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* AI Next Steps */}
-                        {aiStatusSummary && aiStatusSummary.nextSteps && aiStatusSummary.nextSteps.length > 0 && (
-                            <div className="mb-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-200 dark:border-purple-800">
-                                <div className="flex items-center gap-1 mb-1">
-                                    <Sparkles className="w-3 h-3 text-purple-600" />
-                                    <span className="text-xs font-medium text-purple-900 dark:text-purple-100">AI Next Steps</span>
-                                </div>
-                                <ul className="text-xs text-purple-800 dark:text-purple-200 space-y-0.5">
-                                    {aiStatusSummary.nextSteps.slice(0, 2).map((step, idx) => (
-                                        <li key={idx}>• {step}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-
-                        <div className="flex items-center gap-2 text-xs">
-                            <label className="flex items-center gap-1">
-                                <input
-                                    type="checkbox"
-                                    checked={autoValidationEnabled}
-                                    onChange={toggleAutoValidation}
-                                    className="w-3 h-3"
-                                />
-                                Auto-validate
-                            </label>
-                            <button
-                                onClick={runValidation}
-                                className="text-muted-foreground hover:text-foreground"
+                            {/* Many marker (Crow's Foot) */}
+                            <marker
+                                id="marker-many"
+                                viewBox="0 0 10 10"
+                                refX="5"
+                                refY="5"
+                                markerWidth="8"
+                                markerHeight="8"
+                                orient="auto-start-reverse"
                             >
-                                Refresh
-                            </button>
-                            <button
-                                onClick={fetchAIStatusSummary}
-                                disabled={isLoadingAiSummary}
-                                className="text-purple-600 hover:text-purple-800 disabled:opacity-50 flex items-center gap-1"
-                                title="Refresh AI Summary"
-                            >
-                                {isLoadingAiSummary ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                    <Sparkles className="w-3 h-3" />
-                                )}
-                            </button>
-                        </div>
-                    </Panel>
-                )}
+                                <path d="M 0 0 L 5 5 L 0 10 M 5 5 L 10 5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                            </marker>
 
-                <Toolbar />
-            </ReactFlow>
+                            {/* Optional marker (O) */}
+                            <marker
+                                id="marker-optional"
+                                viewBox="0 0 10 10"
+                                refX="5"
+                                refY="5"
+                                markerWidth="6"
+                                markerHeight="6"
+                                orient="auto-start-reverse"
+                            >
+                                <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="white" />
+                            </marker>
+
+                            {/* One and only one (||) */}
+                            <marker
+                                id="marker-one-only"
+                                viewBox="0 0 12 10"
+                                refX="11"
+                                refY="5"
+                                markerWidth="8"
+                                markerHeight="6"
+                                orient="auto-start-reverse"
+                            >
+                                <path d="M 4 0 L 4 10 M 8 0 L 8 10" stroke="currentColor" strokeWidth="2" fill="none" />
+                            </marker>
+
+                            {/* Zero or many (O <) */}
+                            <marker
+                                id="marker-zero-many"
+                                viewBox="0 0 15 10"
+                                refX="14"
+                                refY="5"
+                                markerWidth="10"
+                                markerHeight="6"
+                                orient="auto-start-reverse"
+                            >
+                                <circle cx="4" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" fill="white" />
+                                <path d="M 8 0 L 15 5 L 8 10 M 15 5 L 15 5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                            </marker>
+
+                            {/* One or many (| <) */}
+                            <marker
+                                id="marker-one-many"
+                                viewBox="0 0 15 10"
+                                refX="14"
+                                refY="5"
+                                markerWidth="10"
+                                markerHeight="6"
+                                orient="auto-start-reverse"
+                            >
+                                <path d="M 4 0 L 4 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                                <path d="M 8 0 L 15 5 L 8 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                            </marker>
+
+                            {/* Zero or one (O |) */}
+                            <marker
+                                id="marker-zero-one"
+                                viewBox="0 0 15 10"
+                                refX="14"
+                                refY="5"
+                                markerWidth="10"
+                                markerHeight="6"
+                                orient="auto-start-reverse"
+                            >
+                                <circle cx="4" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" fill="white" />
+                                <path d="M 10 0 L 10 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                            </marker>
+                        </defs>
+                    </svg>
+
+                    <Background
+                        gap={20}
+                        color={isDark ? '#333' : '#ddd'}
+                        variant={BackgroundVariant.Dots}
+                    />
+                    <Controls
+                        className="bg-card/95 backdrop-blur-sm border-border shadow-lg rounded-lg overflow-hidden transition-all duration-200 hover:shadow-xl"
+                        showZoom={true}
+                        showFitView={true}
+                        showInteractive={false}
+                        position="bottom-left"
+                    />
+                    <MiniMap
+                        nodeColor={getNodeColor}
+                        maskColor={isDark ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.05)'}
+                        style={{
+                            backgroundColor: isDark ? 'rgba(17, 24, 39, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                            height: 140,
+                            width: 200,
+                            border: '1px solid',
+                            borderColor: isDark ? '#374151' : '#e5e7eb',
+                            backdropFilter: 'blur(8px)',
+                        }}
+                        className="rounded-lg shadow-2xl transition-all duration-300 hover:shadow-primary/20 hover:scale-105 border-primary/10"
+                        pannable
+                        zoomable
+                        position="top-left"
+                    />
+                </ReactFlow>
+            </div>
+
+            {/* Unified Sidebar */}
+            <UnifiedSidebar />
+
+            {/* Property Panel */}
             <PropertyPanel />
-            <BottomToolbar />
+
+            {/* Modal Panels */}
             <ValidationPanel
                 isOpen={validationPanelOpen}
                 onClose={() => setValidationPanelOpen(false)}
@@ -600,7 +474,33 @@ const CanvasContent = () => {
                 isOpen={performancePanelOpen}
                 onClose={() => setPerformancePanelOpen(false)}
             />
-            <UnifiedToolbar />
+            {historyPanelOpen && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="bg-background rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <HistoryPanel
+                            isOpen={historyPanelOpen}
+                            onClose={() => setHistoryPanelOpen(false)}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* SQL Import Panel */}
+            {importPanelOpen && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="bg-background rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <SqlImportPanel onClose={() => setImportPanelOpen(false)} />
+                    </div>
+                </div>
+            )}
+
+            {/* Chat Panel */}
             <ChatPanel />
         </div>
     );

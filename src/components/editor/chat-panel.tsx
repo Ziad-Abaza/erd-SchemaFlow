@@ -49,10 +49,13 @@ const ChatPanel = memo(() => {
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="fixed bottom-6 right-6 z-50 bg-primary text-primary-foreground p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center gap-2 group"
+                    className="fixed bottom-8 right-8 z-50 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground p-2 rounded-full shadow-2xl hover:scale-110 transition-all duration-300 flex items-center gap-2 group hover:shadow-primary/25 border-2 border-primary/20 backdrop-blur-sm"
                 >
-                    <MessageSquare className="w-6 h-6" />
-                    <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 font-medium pb-0.5">
+                    <div className="relative">
+                        <MessageSquare className="w-4 h-4" />
+                        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-pulse border-2 border-background"></div>
+                    </div>
+                    <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 font-medium pb-0.5 whitespace-nowrap">
                         Ask AI
                     </span>
                 </button>
