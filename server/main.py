@@ -1,4 +1,13 @@
 import os
+from dotenv import load_dotenv
+# Load .env file from the root directory
+dotenv_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path)
+    print(f"Loaded environment variables from {dotenv_path}")
+else:
+    print(f"Warning: .env file not found at {dotenv_path}")
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -10,8 +19,32 @@ import re
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+def check_cuda_available() -> bool:
+    """Check if CUDA is available for GPU acceleration"""
+    try:
+        # Try to import torch to check CUDA (most reliable method)
+        import torch
+        if torch.cuda.is_available():
+            logger.info(f"CUDA detected: {torch.cuda.get_device_name(0)}")
+            return True
+        return False
+    except ImportError:
+        # If torch is not available, check environment variables
+        # CUDA_HOME or CUDA_PATH indicate CUDA installation
+        cuda_home = os.getenv("CUDA_HOME") or os.getenv("CUDA_PATH")
+        if cuda_home:
+            logger.info(f"CUDA installation detected at: {cuda_home}")
+            # Assume available if CUDA paths are set (will fail gracefully if not)
+            return True
+        # No CUDA indicators found
+        logger.info("No CUDA installation detected")
+        return False
 
 app = FastAPI()
 
@@ -44,31 +77,70 @@ else:
 import traceback
 
 print(f"Loading model from {MODEL_PATH}...")
+print(f"Server-side context limit: {os.getenv('AI_MAX_CONTEXT_TOKENS', 'default')} tokens")
+
+# Check CUDA availability and user preference
+USE_CUDA = os.getenv("USE_CUDA", "false").lower() in ("true", "1", "yes")
+cuda_available = check_cuda_available() if USE_CUDA else False
+
+if USE_CUDA:
+    if cuda_available:
+        print("CUDA is available and enabled. Loading model with GPU acceleration...")
+    else:
+        print("CUDA requested but not available. Falling back to CPU...")
+        USE_CUDA = False
+else:
+    print("CUDA disabled via USE_CUDA environment variable. Using CPU...")
 
 model = None
 model_load_error: Optional[str] = None
 
 try:
-    # Try with GPU layers first, fallback to CPU if needed
     # Get context limit from environment (default 2048)
     max_context_tokens = int(os.getenv("AI_MAX_CONTEXT_TOKENS", "2048"))
     print(f"Initializing model with context length: {max_context_tokens}")
 
-    try:
-        model = AutoModelForCausalLM.from_pretrained(
-            MODEL_PATH,
-            model_type="mistral",
-            gpu_layers=None,
-            context_length=max_context_tokens
-        )
-    except:
+    if USE_CUDA and cuda_available:
+        # Try to load with GPU layers
+        # gpu_layers=None means use all available layers on GPU
+        # You can also specify a number like gpu_layers=35 to use specific number of layers
+        gpu_layers = os.getenv("GPU_LAYERS")
+        if gpu_layers:
+            try:
+                gpu_layers = int(gpu_layers)
+                print(f"Using {gpu_layers} GPU layers")
+            except ValueError:
+                gpu_layers = None
+                print("Invalid GPU_LAYERS value, using all available layers")
+        else:
+            gpu_layers = None  # Use all available layers
+        
+        try:
+            model = AutoModelForCausalLM.from_pretrained(
+                MODEL_PATH,
+                model_type="mistral",
+                gpu_layers=gpu_layers,
+                context_length=max_context_tokens
+            )
+            print("Model loaded successfully with GPU acceleration.")
+        except Exception as gpu_error:
+            logger.warning(f"Failed to load with GPU: {gpu_error}. Falling back to CPU...")
+            model = AutoModelForCausalLM.from_pretrained(
+                MODEL_PATH,
+                model_type="mistral",
+                gpu_layers=0,
+                context_length=max_context_tokens
+            )
+            print("Model loaded successfully on CPU (GPU fallback).")
+    else:
+        # Load on CPU
         model = AutoModelForCausalLM.from_pretrained(
             MODEL_PATH,
             model_type="mistral",
             gpu_layers=0,
             context_length=max_context_tokens
         )
-    print("Model loaded successfully.")
+        print("Model loaded successfully on CPU.")
 except Exception as e:
     print(f"Error loading model:")
     traceback.print_exc()
@@ -190,7 +262,7 @@ def estimate_tokens(text: str) -> int:
     char_estimate = chars * 0.25
     return int((word_estimate + char_estimate) / 2)
 
-def calculate_available_tokens_for_schema(system_prompt: str, max_context: int = 512, output_buffer: int = 100, safety: int = 50) -> int:
+def calculate_available_tokens_for_schema(system_prompt: str, max_context: int = 2048, output_buffer: int = 150, safety: int = 50) -> int:
     """Calculate how many tokens are available for schema after accounting for prompt and output"""
     prompt_tokens = estimate_tokens(system_prompt)
     available = max_context - prompt_tokens - output_buffer - safety
@@ -315,9 +387,20 @@ def extract_first_json_object_from_array(array_text: str) -> Optional[str]:
 
 def generate_with_fallback(prompt: str) -> str:
     try:
-        return model(prompt, temperature=0.2, top_p=0.9, max_new_tokens=256)
-    except TypeError:
-        return model(prompt)
+        # Use lower temperature for more predictable JSON output
+        logger.info("Generating response with temperature=0.2...")
+        response = model(prompt, temperature=0.2, top_p=0.9, max_new_tokens=1024)
+        if not response:
+            logger.warning("Model returned empty response. Retrying with basic generation...")
+            response = model(prompt)
+        return response
+    except Exception as e:
+        logger.error(f"Error during model generation: {e}")
+        try:
+            return model(prompt)
+        except Exception as e2:
+            logger.error(f"Fallback generation also failed: {e2}")
+            return ""
 
 
 def infer_table_label_from_prompt(prompt: str) -> str:
@@ -657,8 +740,10 @@ async def create_table_ai(request: CreateTableRequest):
             "suggested_relationships": []
         }
 
-    # Get model context limit from environment (default 512 for Mistral)
-    max_context = int(os.getenv("AI_MAX_CONTEXT_TOKENS", "512"))
+    # Use global model context limit
+    max_context = max_context_tokens
+    
+    logger.info(f"Creating table using max_context={max_context}")
     
     # Compact system prompt to save tokens
     compact_prompt = f"""Create table: "{request.prompt}"
@@ -688,7 +773,6 @@ Rules: snake_case, unique ids, primary key id (uuid), mark *_id as foreign keys 
     
     # Validate token count before sending
     estimated_tokens = estimate_tokens(messages_text)
-    max_context = int(os.getenv("AI_MAX_CONTEXT_TOKENS", "512"))
     
     if estimated_tokens > max_context:
         logger.warning(f"Request exceeds context limit: {estimated_tokens} > {max_context}")
@@ -770,7 +854,7 @@ async def auto_create_relationships(request: CreateRelationshipsRequest):
         }
 
     # Get model context limit from environment
-    max_context = int(os.getenv("AI_MAX_CONTEXT_TOKENS", "512"))
+    max_context = max_context_tokens
     
     # Compact prompt template
     prompt_template = """Find relationships for: "{table_name}"
@@ -823,7 +907,7 @@ async def get_suggestions(erd_state: dict):
         }
 
     # Get model context limit from environment
-    max_context = int(os.getenv("AI_MAX_CONTEXT_TOKENS", "512"))
+    max_context = max_context_tokens
     
     # Compact prompt template
     prompt_template = """Analyze ERD:

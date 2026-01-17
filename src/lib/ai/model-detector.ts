@@ -42,7 +42,7 @@ export class ModelDetector {
           estimatedSpeed: info.estimated_speed || 'medium'
         };
       }
-      
+
       // 404 or other error - endpoint doesn't exist
       this.endpointExists = false;
       // Don't log 404s - they're expected for servers without this endpoint
@@ -67,7 +67,7 @@ export class ModelDetector {
     if (modelName.includes('mistral')) {
       return {
         name: 'mistral',
-        maxContextTokens: maxContext || 512,
+        maxContextTokens: maxContext || 4096,
         supportsStreaming: true,
         estimatedSpeed: 'medium'
       };
@@ -97,15 +97,15 @@ export class ModelDetector {
    */
   static getRecommendedTimeout(capabilities: ModelCapabilities, estimatedTokens: number): number {
     const baseTimeout = 30000; // 30 seconds base
-    
+
     // Small context models need more time per token (more compression overhead)
     if (capabilities.maxContextTokens <= 512) {
       // For small models, allow more time (up to 2 minutes)
-      return Math.min(120000, baseTimeout + (estimatedTokens * 50));
+      return Math.min(300000, baseTimeout + (estimatedTokens * 100));
     }
 
     // Large context models are faster
-    return Math.min(60000, baseTimeout + (estimatedTokens * 20));
+    return Math.min(180000, baseTimeout + (estimatedTokens * 50));
   }
 }
 

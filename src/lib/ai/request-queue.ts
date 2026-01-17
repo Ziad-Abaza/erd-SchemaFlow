@@ -19,7 +19,7 @@ export class RequestQueue {
   private maxRetries: number;
 
   constructor(options: QueueOptions = {}) {
-    this.maxConcurrent = options.maxConcurrent ?? 3;
+    this.maxConcurrent = options.maxConcurrent ?? 1;
     this.retryDelay = options.retryDelay ?? 1000;
     this.maxRetries = options.maxRetries ?? 2;
   }

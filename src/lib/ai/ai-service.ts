@@ -29,8 +29,8 @@ export class AIService {
   ) {
     // Initialize with a default provider to satisfy TypeScript
     const baseURL = process.env.AI_SERVER_URL || 'http://localhost:8000';
-    this.provider = new LocalAIProvider(baseURL, process.env.AI_API_KEY, 120000);
-    
+    this.provider = new LocalAIProvider(baseURL, process.env.AI_API_KEY, 300000);
+
     if (provider) {
       this.provider = provider;
     } else {
@@ -41,7 +41,7 @@ export class AIService {
       }).catch(err => {
         console.error('Failed to initialize AI provider:', err);
         // Fallback to basic provider
-        this.provider = new LocalAIProvider(baseURL, process.env.AI_API_KEY, 120000);
+        this.provider = new LocalAIProvider(baseURL, process.env.AI_API_KEY, 300000);
       });
     }
     this.enableCache = options.enableCache ?? true;
@@ -63,7 +63,7 @@ export class AIService {
     }
     // Fallback
     const baseURL = process.env.AI_SERVER_URL || 'http://localhost:8000';
-    this.provider = new LocalAIProvider(baseURL, process.env.AI_API_KEY, 120000);
+    this.provider = new LocalAIProvider(baseURL, process.env.AI_API_KEY, 300000);
     return this.provider;
   }
 
@@ -73,7 +73,7 @@ export class AIService {
   private async createDefaultProvider(): Promise<AIProvider> {
     const baseURL = process.env.AI_SERVER_URL || 'http://localhost:8000';
     const apiKey = process.env.AI_API_KEY;
-    
+
     // Detect model capabilities to set appropriate timeout
     // Try server first (only once, cached), fall back to environment detection
     let capabilities: ModelCapabilities;
@@ -83,23 +83,23 @@ export class AIService {
       // If detection fails, use environment-based detection
       capabilities = ModelDetector.detectFromEnv();
     }
-    
+
     // Update token manager with detected limits
     tokenManager.setLimits({
       maxContextTokens: capabilities.maxContextTokens,
       maxInputTokens: Math.max(100, capabilities.maxContextTokens - 2000),
       safetyBuffer: capabilities.maxContextTokens <= 512 ? 50 : 1000
     });
-    
+
     // Use longer timeout for small context models (they need more processing time)
-    const defaultTimeout = capabilities.maxContextTokens <= 512 ? 120000 : 60000;
+    const defaultTimeout = capabilities.maxContextTokens <= 512 ? 300000 : 180000;
     const timeout = parseInt(process.env.AI_REQUEST_TIMEOUT || defaultTimeout.toString(), 10);
-    
+
     // Only log if we have meaningful detection (not default/unknown)
     if (capabilities.name !== 'unknown' || process.env.AI_MODEL_NAME) {
       console.log(`[AI Service] Model: ${capabilities.name}, context: ${capabilities.maxContextTokens} tokens, timeout: ${timeout}ms`);
     }
-    
+
     return new LocalAIProvider(baseURL, apiKey, timeout);
   }
 
@@ -189,7 +189,7 @@ export class AIService {
         // Check cache for each chunk
         let chunkResponse: AIResponse;
         const provider = await this.ensureProvider();
-        
+
         if (useCache) {
           const cacheKey = cacheManager.createCacheKey(chunk);
           const cached = cacheManager.get(cacheKey);
@@ -348,13 +348,13 @@ export class AIService {
         createdAt: Date.now()
       };
 
-        // Execute in background
-        this.ensureProvider().then(provider => {
-          return this.queue.enqueue(
-            () => provider.chat(request),
-            priority
-          );
-        }).then(resolve).catch(reject);
+      // Execute in background
+      this.ensureProvider().then(provider => {
+        return this.queue.enqueue(
+          () => provider.chat(request),
+          priority
+        );
+      }).then(resolve).catch(reject);
     });
   }
 

@@ -16,6 +16,10 @@ MODEL_PATH=./AI/mistral-7b-instruct-v0.2.Q4_K_M.gguf
 # AI Server URL
 AI_SERVER_URL=http://localhost:8000
 AI_API_KEY=
+
+# GPU/CUDA Configuration
+USE_CUDA=false
+GPU_LAYERS=
 ```
 
 ## Model-Specific Configurations
@@ -81,6 +85,20 @@ MODEL_PATH=./AI/tinyllama-1.1b-chat-v0.4.q4_k_m.gguf
 - Default: `http://localhost:8000`
 - Change if server runs on different port/host
 
+### USE_CUDA
+- Enable GPU acceleration using CUDA (if available)
+- Options: `true`, `false`, `1`, `0`, `yes`, `no`
+- Default: `false` (uses CPU)
+- **Note**: Requires CUDA-compatible GPU and proper drivers installed
+- The server will automatically detect CUDA availability and fall back to CPU if not available
+
+### GPU_LAYERS
+- Number of model layers to offload to GPU (optional)
+- If not set or empty, all available layers will be used on GPU
+- Set a specific number (e.g., `35`) to use only that many layers on GPU
+- Only used when `USE_CUDA=true` and CUDA is available
+- Default: `""` (use all available layers)
+
 ## Verification
 
 After setting up `.env`, verify configuration:
@@ -145,6 +163,33 @@ After setting up `.env`, verify configuration:
 
 3. **Restart Next.js**:
    - Restart dev server to pick up new env vars
+
+### Enabling GPU Acceleration
+
+1. **Check CUDA Availability**:
+   ```bash
+   # Check if CUDA is available (requires PyTorch or CUDA toolkit)
+   python -c "import torch; print(torch.cuda.is_available())"
+   ```
+
+2. **Enable in .env**:
+   ```env
+   USE_CUDA=true
+   GPU_LAYERS=  # Leave empty to use all layers, or specify a number
+   ```
+
+3. **Restart Python Server**:
+   - The server will detect CUDA and load model with GPU acceleration
+   - Look for log: "CUDA is available and enabled. Loading model with GPU acceleration..."
+   - If CUDA is not available, it will automatically fall back to CPU
+
+4. **Optional: Specify GPU Layers**:
+   ```env
+   USE_CUDA=true
+   GPU_LAYERS=35  # Use 35 layers on GPU, rest on CPU
+   ```
+   - Useful if you have limited GPU memory
+   - Experiment with different values based on your GPU memory
 
 ---
 

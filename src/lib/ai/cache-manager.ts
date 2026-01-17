@@ -55,12 +55,14 @@ export class CacheManager {
 
     this.memoryCache.set(cacheKey, cached);
     
-    // Also store in localStorage for persistence
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify(cached));
-    } catch (e) {
-      // localStorage might be full or unavailable
-      console.warn('Failed to cache in localStorage:', e);
+    // Also store in localStorage for persistence (only in browser environment)
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(cached));
+      } catch (e) {
+        // localStorage might be full or unavailable
+        console.warn('Failed to cache in localStorage:', e);
+      }
     }
   }
 
@@ -158,6 +160,11 @@ export class CacheManager {
    * Get from localStorage
    */
   private getFromStorage(key: string): any | null {
+    // Only access localStorage in browser environment
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return null;
+    }
+    
     try {
       const item = localStorage.getItem(key);
       if (!item) return null;
@@ -182,6 +189,11 @@ export class CacheManager {
    * Check if exists in localStorage
    */
   private hasInStorage(key: string): boolean {
+    // Only access localStorage in browser environment
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return false;
+    }
+    
     try {
       const item = localStorage.getItem(key);
       if (!item) return false;
@@ -197,6 +209,11 @@ export class CacheManager {
    * Remove from localStorage
    */
   private removeFromStorage(key: string): void {
+    // Only access localStorage in browser environment
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return;
+    }
+    
     try {
       localStorage.removeItem(key);
     } catch (e) {
@@ -208,6 +225,11 @@ export class CacheManager {
    * Clear localStorage cache
    */
   private clearStorage(): void {
+    // Only access localStorage in browser environment
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return;
+    }
+    
     try {
       const keys = Object.keys(localStorage);
       for (const key of keys) {

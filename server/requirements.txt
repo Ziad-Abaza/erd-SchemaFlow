@@ -3,3 +3,4 @@ uvicorn
 ctransformers
 pydantic
 numpy
+python-dotenv

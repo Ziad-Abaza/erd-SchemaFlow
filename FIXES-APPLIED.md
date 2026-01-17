@@ -1,43 +1,44 @@
-# Fixes Applied - Server Context & Validation
+# Fixes Applied - Timeouts & Performance
 
 ## Summary
 
-Fixed critical validation errors and context limit issues preventing the AI from working correctly.
+Addressed persistent timeouts (120000ms) and performance bottlenecks when running the local AI model on CPU.
 
 ## Problems Identified
 
-1. **Validation Error**: `Field required: messages` on `/v1/chat/completions`.
-   - Cause: Client-side code in `LocalAIProvider.ts` and `route.ts` was forwarding requests with `messages: undefined` when the input was malformed or empty, causing the Python server to reject the request.
-2. **Context Limit Exceeded**: Logs showed `WARNING:ctransformers:Number of tokens (...) exceeded maximum context length (512)`.
-   - Cause: `server/main.py` was initializing `ctransformers` without an explicit `context_length`, causing it to default to 512 tokens.
+1. **Request Timeouts**: The default timeout of 120 seconds was insufficient for the local Mistral model running on CPU, especially when processing larger schemas or generating table structures (which took ~4.4 minutes in one log entry).
+2. **CPU Overload/Starvation**: The `RequestQueue` defaulted to 3 concurrent requests. On a CPU-bound system, running 3 LLM inferences in parallel causes extreme slowdowns, leading to timeouts for *all* requests.
+3. **Inconsistent Defaults**: Different parts of the codebase (`model-detector.ts`, `local-provider.ts`) had hardcoded defaults that didn't adapt well to local CPU inference.
 
 ## Fixes Applied
 
-### 1. Increased Context Window to 4096 Tokens ✅
+### 1. Increased Timeouts ✅
 
-**File**: `.env` and `server/main.py`
-
-**Changes**:
-- Updated `.env` to set `AI_MAX_CONTEXT_TOKENS=4096`.
-- Modified `server/main.py` to read `AI_MAX_CONTEXT_TOKENS` and pass `context_length` to `AutoModelForCausalLM.from_pretrained`.
-
-**Impact**:
-- The model can now handle larger prompts and schema contexts (up to 4096 tokens).
-- "Number of tokens exceeded" warnings should be resolved.
-- JSON generation should be more reliable as the output won't be truncated unexpectedly.
-
-### 2. Fixed Request Validation ✅
-
-**File**: `src/lib/ai/providers/local-provider.ts` and `src/app/api/ai/chat/route.ts`
+**File**: `.env`, `src/lib/ai/ai-service.ts`, `src/lib/ai/model-detector.ts`
 
 **Changes**:
-- Added fallback `|| []` to `messages` field in `LocalAIProvider.ts` methods (`chat` and `stream`).
-- Added fallback `|| []` to `messages` in `src/app/api/ai/chat/route.ts`.
+- Updated `.env` to set `AI_REQUEST_TIMEOUT=300000` (5 minutes).
+- Updated `ai-service.ts` to pass `300000` (5 mins) as the default timeout if env var isn't set.
+- Updated `model-detector.ts` to suggest longer timeouts (up to 5 mins) for models with small contexts or CPU constraints.
+
+### 2. Reduced Concurrency ✅
+
+**File**: `src/lib/ai/request-queue.ts`
+
+**Changes**:
+- Changed default `maxConcurrent` from `3` to `1`.
 
 **Impact**:
-- Requests will never be sent with missing `messages` field.
-- Resolves the `422 Unprocessable Entity` validation errors seen in logs.
+- Requests will now be processed sequentially. This is CRITICAL for local CPU inference.
+- While latency for the *first* request remains high, subsequent requests won't fight for CPU resources, preventing the entire system from locking up.
+
+### 3. Updated Model Defaults ✅
+
+**File**: `src/lib/ai/model-detector.ts`
+
+**Changes**:
+- Updated default `maxContextTokens` for Mistral from 512 to 4096 to match the server configuration.
 
 ## Instructions
 
-**PLEASE RESTART THE PYTHON SERVER** for `server/main.py` changes to take effect.
+**PLEASE RESTART THE PYTHON SERVER** and **RELOAD THE NEXT.JS APP** for these changes to take effect.
