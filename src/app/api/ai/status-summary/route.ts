@@ -1,75 +1,106 @@
 import { NextResponse } from 'next/server';
+import { getAIService } from '@/lib/ai';
+import { PromptManager } from '@/lib/ai/prompts';
+import { contextManager } from '@/lib/ai';
 
 export async function POST(req: Request) {
   try {
-    const { schema, validationResults, performanceMetrics, nodes, edges } = await req.json();
+    const { schema, validationResults, performanceMetrics, nodes, edges, useCache, background, priority } = await req.json();
 
-    // Use chat completions API with a structured prompt for status summary
-    const response = await fetch(`${process.env.AI_SERVER_URL || 'http://localhost:8000'}/v1/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a database health expert. Analyze validation and performance data to provide a comprehensive health summary with actionable insights.'
-          },
-          {
-            role: 'user',
-            content: `Generate a comprehensive status summary for this database schema:
+    const aiService = getAIService();
+    
+    // Compress validation results and performance metrics for efficiency
+    const compressedValidation = validationResults 
+      ? contextManager.compressValidationResults(validationResults)
+      : validationResults;
+    const compressedMetrics = performanceMetrics
+      ? contextManager.compressPerformanceMetrics(performanceMetrics)
+      : performanceMetrics;
 
-Schema: ${JSON.stringify(schema || { nodes, edges })}
-Validation Results: ${JSON.stringify(validationResults || [])}
-Performance Metrics: ${JSON.stringify(performanceMetrics || [])}
-
-Analyze and provide:
-- Overall health status
-- Health score (0-100)
-- Category-specific insights
-- Prioritized next steps
-
-Return ONLY valid JSON in this exact format:
-{
-  "overall": "healthy|warning|critical",
-  "score": 0-100,
-  "insights": [
-    {
-      "category": "category_name",
-      "status": "status_description",
-      "recommendation": "actionable_recommendation"
-    }
-  ],
-  "nextSteps": [
-    "Prioritized action item 1",
-    "Prioritized action item 2"
-  ]
-}`
-          }
-        ],
-        enable_thinking: false,
-        temperature: 0.3,
-        max_tokens: 1500
-      }),
+    // Build prompt using prompt manager
+    const userPrompt = PromptManager.getStatusSummaryPrompt({
+      schema,
+      nodes,
+      edges,
+      validationResults: compressedValidation,
+      performanceMetrics: compressedMetrics
     });
 
-    if (!response.ok) {
-      throw new Error(`AI server responded with ${response.status}`);
-    }
+    const request = {
+      messages: [
+        {
+          role: 'system' as const,
+          content: PromptManager.getStatusSummarySystemMessage()
+        },
+        {
+          role: 'user' as const,
+          content: userPrompt
+        }
+      ],
+      temperature: 0.3,
+      maxTokens: 1500,
+      enableThinking: false
+    };
 
-    const data = await response.json();
-    let content = data.choices?.[0]?.message?.content || '';
+    // Process request with caching, context compression, and token management
+    const startTime = Date.now();
+    let response: any;
     
-    // Extract JSON from markdown code blocks if present
-    const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      content = jsonMatch[1];
+    try {
+      response = await aiService.processRequest(request, {
+        useCache: useCache !== false, // Default to true
+        compressContext: true,
+        chunkLargeSchemas: true, // Enable chunking for large schemas
+        priority: priority || 'low', // Status summary is lower priority
+        background: background === true
+      });
+    } catch (error: any) {
+      console.error('AI Service Error:', error);
+      // Return fallback response instead of throwing
+      return NextResponse.json({
+        success: false,
+        error: error.message || 'AI service error',
+        data: {
+          overall: 'warning',
+          score: 75,
+          insights: [],
+          nextSteps: ['Unable to generate AI summary. The schema may be too large or the AI service is unavailable.']
+        },
+        metadata: {
+          processingTime: Date.now() - startTime,
+          error: true
+        }
+      }, { status: 500 });
     }
 
-    let summaryResult;
+    // Parse JSON response
+    let summaryResult: any;
     try {
-      summaryResult = JSON.parse(content);
-    } catch (parseError) {
-      // Fallback if JSON parsing fails
+      const provider = (aiService as any).provider;
+      const extractJSON = provider.extractJSON?.bind(provider) || ((content: string) => {
+        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          try {
+            return JSON.parse(jsonMatch[1]);
+          } catch {
+            return null;
+          }
+        }
+        try {
+          return JSON.parse(content);
+        } catch {
+          return null;
+        }
+      });
+      
+      summaryResult = extractJSON(response.content);
+    } catch (parseError: any) {
+      console.error('JSON Parse Error:', parseError);
+      summaryResult = null;
+    }
+    
+    // Fallback if parsing fails
+    if (!summaryResult) {
       summaryResult = {
         overall: 'warning',
         score: 75,
@@ -82,16 +113,19 @@ Return ONLY valid JSON in this exact format:
       success: true,
       data: summaryResult,
       metadata: {
-        model: data.model || 'unknown',
-        tokens: data.usage?.total_tokens || 0,
-        processingTime: Date.now()
+        model: response.model || 'unknown',
+        tokens: response.tokens?.total || 0,
+        processingTime: Date.now() - startTime,
+        cached: response.metadata?.cached || false,
+        chunked: response.metadata?.chunked || false,
+        chunksProcessed: response.metadata?.chunksProcessed
       }
     });
   } catch (error: any) {
     console.error('AI Status Summary Error:', error);
     return NextResponse.json({ 
       success: false,
-      error: error.message,
+      error: error.message || 'Unknown error',
       data: {
         overall: 'warning',
         score: 75,

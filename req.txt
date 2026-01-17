@@ -1,0 +1,169 @@
+AI Analysis in Schema Validation
+
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:51865 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+ERROR:__main__:Validation error for /v1/chat/completions: [{'type': 'missing', 'loc': ('body', 'messages'), 'msg': 'Field required', 'input': {'temperature': 0.7, 'enable_thinking': False, 'stream': False}}]
+INFO:     127.0.0.1:58749 - "POST /v1/chat/completions HTTP/1.1" 422 Unprocessable Content
+ERROR:__main__:Validation error for /v1/chat/completions: [{'type': 'missing', 'loc': ('body', 'messages'), 'msg': 'Field required', 'input': {'temperature': 0.7, 'enable_thinking': False, 'stream': False}}]
+INFO:     127.0.0.1:51865 - "POST /v1/chat/completions HTTP/1.1" 422 Unprocessable Content
+ERROR:__main__:Validation error for /v1/chat/completions: [{'type': 'missing', 'loc': ('body', 'messages'), 'msg': 'Field required', 'input': {'temperature': 0.7, 'enable_thinking': False, 'stream': False}}]
+INFO:     127.0.0.1:51865 - "POST /v1/chat/completions HTTP/1.1" 422 Unprocessable Content
+
+AI server responded with 422: {"detail":[{"type":"missing","loc":["body","messages"],"msg":"Field required","input":{"temperature":0.7,"enable_thinking":false,"stream":false}}],"body":"{'temperature': 0.7, 'enable_thinking': False, 'stream': False}","path":"/v1/chat/completions","message":"Request validation failed. Please check your request format."}
+============================================================
+AI Performance Analysis
+
+INFO:     127.0.0.1:63046 - "GET /model-info HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:63047 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+
+AI Summary
+Index optimization: Inefficient index usage detected
+============================================================
+when create table by AI
+NFO:__main__:Attempt 1: Sending request with ~217 tokens (limit: 512)
+WARNING:ctransformers:Number of tokens (513) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (514) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (515) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (516) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (517) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (518) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (519) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (520) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (521) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (522) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (523) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (524) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (525) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (526) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (527) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (528) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (529) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (530) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (531) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (532) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (533) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (534) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (535) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (536) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (537) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (538) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (539) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (540) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (541) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (542) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (543) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (544) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (545) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (546) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (547) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (548) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (549) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (550) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (551) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (552) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (553) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (554) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (555) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (556) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (557) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (558) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (559) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (560) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (561) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (562) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (563) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (564) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (565) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (566) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (567) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (568) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (569) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (570) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (571) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (572) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (573) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (574) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (575) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (576) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (577) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (578) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (579) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (580) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (581) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (582) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (583) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (584) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (585) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (586) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (587) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (588) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (589) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (590) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (591) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (592) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (593) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (594) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (595) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (596) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (597) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (598) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (599) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (600) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (601) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (602) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (603) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (604) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (605) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (606) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (607) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (608) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (609) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (610) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (611) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (612) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (613) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (614) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (615) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (616) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (617) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (618) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (619) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (620) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (621) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (622) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (623) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (624) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (625) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (626) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (627) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (628) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (629) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (630) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (631) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (632) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (633) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (634) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (635) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (636) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (637) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (638) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (639) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (640) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (641) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (642) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (643) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (644) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (645) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (646) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (647) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (648) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (649) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (650) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (651) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (652) exceeded maximum context length (512).
+WARNING:ctransformers:Number of tokens (653) exceeded maximum context length (512).
+ERROR:__main__:Attempt 1 failed: No JSON object found: line 1 column 1 (char 0)
+INFO:__main__:Attempt 2: Sending request with ~73 tokens (limit: 512)
+ERROR:__main__:Attempt 2 failed: No JSON object found: line 1 column 1 (char 0)
+ERROR:__main__:AI output invalid JSON after 2 attempts. Last error: No JSON object found: line 1 column 1 (char 0)
+INFO:     127.0.0.1:61081 - "POST /api/create-table HTTP/1.1" 200 OK

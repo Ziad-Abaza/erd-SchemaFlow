@@ -271,6 +271,91 @@ const CanvasContent = () => {
 
     return (
         <div className="w-full h-full bg-background transition-colors duration-300">
+            {/* SVG Marker Definitions - Global scope */}
+            <svg style={{ position: 'absolute', width: 0, height: 0, zIndex: -1 }}>
+                <defs>
+                    {/* One marker (|) */}
+                    <marker
+                        id="marker-one"
+                        viewBox="0 0 10 10"
+                        refX="5"
+                        refY="5"
+                        markerWidth="6"
+                        markerHeight="6"
+                        orient="auto-start-reverse"
+                    >
+                        <path d="M 5 0 L 5 10" stroke="currentColor" strokeWidth="2" fill="none" />
+                    </marker>
+
+                    {/* Many marker (Crow's Foot) */}
+                    <marker
+                        id="marker-many"
+                        viewBox="0 0 10 10"
+                        refX="5"
+                        refY="5"
+                        markerWidth="8"
+                        markerHeight="8"
+                        orient="auto-start-reverse"
+                    >
+                        <path d="M 0 0 L 5 5 L 0 10 M 5 5 L 10 5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                    </marker>
+
+                    {/* Optional marker (O) */}
+                    <marker
+                        id="marker-optional"
+                        viewBox="0 0 10 10"
+                        refX="5"
+                        refY="5"
+                        markerWidth="6"
+                        markerHeight="6"
+                        orient="auto-start-reverse"
+                    >
+                        <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1.5" fill="white" />
+                    </marker>
+
+                    {/* One and only one (||) */}
+                    <marker
+                        id="marker-one-only"
+                        viewBox="0 0 12 10"
+                        refX="11"
+                        refY="5"
+                        markerWidth="8"
+                        markerHeight="6"
+                        orient="auto-start-reverse"
+                    >
+                        <path d="M 4 0 L 4 10 M 8 0 L 8 10" stroke="currentColor" strokeWidth="2" fill="none" />
+                    </marker>
+
+                    {/* Zero or many (O <) */}
+                    <marker
+                        id="marker-zero-many"
+                        viewBox="0 0 15 10"
+                        refX="14"
+                        refY="5"
+                        markerWidth="10"
+                        markerHeight="6"
+                        orient="auto-start-reverse"
+                    >
+                        <circle cx="4" cy="5" r="3" stroke="currentColor" strokeWidth="1.5" fill="white" />
+                        <path d="M 8 0 L 15 5 L 8 10 M 15 5 L 15 5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                    </marker>
+
+                    {/* One or many (| <) */}
+                    <marker
+                        id="marker-one-many"
+                        viewBox="0 0 15 10"
+                        refX="14"
+                        refY="5"
+                        markerWidth="10"
+                        markerHeight="6"
+                        orient="auto-start-reverse"
+                    >
+                        <path d="M 4 0 L 4 10 M 8 0 L 8 10" stroke="currentColor" strokeWidth="2" fill="none" />
+                        <path d="M 8 5 L 15 5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                    </marker>
+                </defs>
+            </svg>
+
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -285,7 +370,7 @@ const CanvasContent = () => {
                 maxZoom={4}
                 snapToGrid={true}
                 snapGrid={[20, 20]}
-                onlyRenderVisibleElements={false}
+                onlyRenderVisibleElements={true}
                 selectionMode={SelectionMode.Partial}
                 multiSelectionKeyCode="Control"
                 deleteKeyCode={null} // We handle delete manually

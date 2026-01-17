@@ -1,12 +1,36 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from ctransformers import AutoModelForCausalLM, AutoTokenizer
 import json
 import re
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+# Add request validation error handler for 422 errors
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle 422 validation errors with detailed error messages"""
+    logger.error(f"Validation error for {request.url.path}: {exc.errors()}")
+    logger.debug(f"Request body: {await request.body()}")
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": exc.errors(),
+            "body": str(exc.body) if hasattr(exc, 'body') else None,
+            "path": str(request.url.path),
+            "message": "Request validation failed. Please check your request format."
+        }
+    )
 
 # Configuration
 _default_model_path = os.path.join(os.path.dirname(__file__), "..", "AI", "mistral-7b-instruct-v0.2.Q4_K_M.gguf")
@@ -26,17 +50,23 @@ model_load_error: Optional[str] = None
 
 try:
     # Try with GPU layers first, fallback to CPU if needed
+    # Get context limit from environment (default 2048)
+    max_context_tokens = int(os.getenv("AI_MAX_CONTEXT_TOKENS", "2048"))
+    print(f"Initializing model with context length: {max_context_tokens}")
+
     try:
         model = AutoModelForCausalLM.from_pretrained(
             MODEL_PATH,
             model_type="mistral",
-            gpu_layers=None
+            gpu_layers=None,
+            context_length=max_context_tokens
         )
     except:
         model = AutoModelForCausalLM.from_pretrained(
             MODEL_PATH,
             model_type="mistral",
-            gpu_layers=0
+            gpu_layers=0,
+            context_length=max_context_tokens
         )
     print("Model loaded successfully.")
 except Exception as e:
@@ -149,13 +179,37 @@ async def chat_completions(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def estimate_tokens(text: str) -> int:
+    """More accurate token estimation"""
+    if not text:
+        return 0
+    # Better estimation: words (~1.3 tokens/word) + chars (~0.25 tokens/char)
+    words = len(text.split())
+    chars = len(text)
+    word_estimate = words * 1.3
+    char_estimate = chars * 0.25
+    return int((word_estimate + char_estimate) / 2)
+
+def calculate_available_tokens_for_schema(system_prompt: str, max_context: int = 512, output_buffer: int = 100, safety: int = 50) -> int:
+    """Calculate how many tokens are available for schema after accounting for prompt and output"""
+    prompt_tokens = estimate_tokens(system_prompt)
+    available = max_context - prompt_tokens - output_buffer - safety
+    return max(50, available)  # Minimum 50 tokens for schema
+
 def truncate_schema_context(schema: str, max_tokens: int = 200) -> str:
     """Truncate schema context to fit within model's token limit"""
     if not schema:
         return ""
     
-    # Rough estimation: 1 token ≈ 4 characters
-    max_chars = max_tokens * 4
+    # Use token estimation instead of character count
+    schema_tokens = estimate_tokens(schema)
+    
+    if schema_tokens <= max_tokens:
+        return schema
+    
+    # Truncate based on token count, not character count
+    # Rough: 1 token ≈ 4 characters, but we'll be more conservative
+    max_chars = max_tokens * 3  # Conservative: 3 chars per token
     
     if len(schema) <= max_chars:
         return schema
@@ -163,12 +217,13 @@ def truncate_schema_context(schema: str, max_tokens: int = 200) -> str:
     # Try to truncate at table boundaries
     lines = schema.split('\n')
     truncated_lines = []
-    current_length = 0
+    current_tokens = 0
     
     for line in lines:
-        if current_length + len(line) + 1 <= max_chars:
+        line_tokens = estimate_tokens(line)
+        if current_tokens + line_tokens + 1 <= max_tokens:
             truncated_lines.append(line)
-            current_length += len(line) + 1
+            current_tokens += line_tokens + 1
         else:
             break
     
@@ -274,8 +329,36 @@ def infer_table_label_from_prompt(prompt: str) -> str:
     return "generated_table"
 
 
+def validate_and_repair_json(text: str) -> dict:
+    """Validate JSON and attempt to repair common corruption issues"""
+    if not text:
+        raise ValueError("Empty response text")
+    
+    # Remove corrupted repeated patterns (e.g., "from_from_from_from...")
+    text = re.sub(r'(\w+)_\1{3,}', r'\1', text)  # Remove repeated field names
+    
+    # Remove placeholder values that weren't replaced
+    text = re.sub(r'\{table_name\}', '"unknown_table"', text)
+    text = re.sub(r'\{column_name\}', '"unknown_column"', text)
+    
+    # Try to fix incomplete JSON structures
+    # Count braces to see if JSON is incomplete
+    open_braces = text.count('{')
+    close_braces = text.count('}')
+    if open_braces > close_braces:
+        # Add missing closing braces
+        text += '}' * (open_braces - close_braces)
+    
+    return text
+
 def parse_model_json_response(response_text: str):
+    """Parse JSON response with enhanced validation and recovery"""
     text = (response_text or "").strip()
+    
+    # Remove error messages about token limits
+    if "Number of tokens" in text or "exceeded maximum context length" in text:
+        logger.warning("Context limit exceeded in response, attempting recovery")
+    
     text = text.replace('\\_', '_')
     if text.startswith('"') and '\\"' in text:
         try:
@@ -285,17 +368,26 @@ def parse_model_json_response(response_text: str):
         except Exception:
             pass
 
+    # Extract from markdown code blocks
     if "```json" in text:
         text = text.split("```json")[1].split("```")[0].strip()
     elif "```" in text:
         text = text.split("```")[1].split("```")[0].strip()
 
+    # Fix common formatting issues
     text = text.replace('}\n    {', '},\n    {')
     text = text.replace(']\n   }', ']\n  }')
 
-    noise_prefixes = ["Number of tokens", "Model response:"]
+    # Remove noise lines
+    noise_prefixes = ["Number of tokens", "Model response:", "exceeded maximum context"]
     response_lines = [ln for ln in text.splitlines() if not any(ln.strip().startswith(p) for p in noise_prefixes)]
     text = "\n".join(response_lines).strip()
+
+    # Validate and repair corrupted JSON
+    try:
+        text = validate_and_repair_json(text)
+    except Exception as e:
+        logger.warning(f"JSON repair attempt failed: {e}")
 
     json_candidate = extract_first_json_value(text)
     if not json_candidate:
@@ -305,10 +397,23 @@ def parse_model_json_response(response_text: str):
     if first_obj:
         json_candidate = first_obj
 
+    # Try parsing with repair
     try:
         return json.loads(json_candidate)
-    except json.JSONDecodeError:
-        return json.loads(repair_common_json_issues(json_candidate))
+    except json.JSONDecodeError as e:
+        logger.warning(f"Initial JSON parse failed, attempting repair: {e}")
+        try:
+            repaired = repair_common_json_issues(json_candidate)
+            return json.loads(repaired)
+        except json.JSONDecodeError as e2:
+            logger.error(f"JSON repair failed: {e2}")
+            # Return minimal valid structure as last resort
+            return {
+                "label": "error_table",
+                "columns": [],
+                "suggested_relationships": [],
+                "error": f"Failed to parse JSON: {str(e2)}"
+            }
 
 
 def sanitize_identifier(value: str) -> str:
@@ -552,24 +657,26 @@ async def create_table_ai(request: CreateTableRequest):
             "suggested_relationships": []
         }
 
-    # Truncate schema context to fit within model limits
-    truncated_schema = truncate_schema_context(request.current_schema, max_tokens=80)
+    # Get model context limit from environment (default 512 for Mistral)
+    max_context = int(os.getenv("AI_MAX_CONTEXT_TOKENS", "512"))
     
-    system_prompt = f"""Create table from: "{request.prompt}"
-Schema: {truncated_schema}
+    # Compact system prompt to save tokens
+    compact_prompt = f"""Create table: "{request.prompt}"
+Schema: {{schema}}
 
-Return ONLY valid JSON as a single object (no comments, no explanations).
-Rules:
-- Use snake_case for label and column names
-- ids must be unique per column
-- include a primary key column id (uuid, not nullable)
-- CAREFULLY analyze the existing schema tables - mark *_id columns as foreign keys pointing to existing tables
-- When column names match patterns like "user_id", "product_id", "category_id", etc., check if matching tables exist in the schema (e.g., "users", "products", "categories")
-- Include suggested_relationships for ALL foreign key relationships to existing schema tables with confidence "high" or "medium"
-- For each *_id column, explicitly add a suggested_relationship to the matching parent table if it exists in the schema
+Return ONLY JSON (no comments):
+{{"label":"table_name","columns":[{{"id":"col_id","name":"col_name","type":"data_type","isPrimaryKey":true,"isForeignKey":false,"isNullable":false}}],"suggested_relationships":[{{"from_table":"child","from_column":"fk_col","to_table":"parent","to_column":"id","relationship_type":"one_to_many","confidence":"high"}}]}}
 
-Output format:
-{{"label":"table_name","columns":[{{"id":"col_id","name":"col_name","type":"data_type","isPrimaryKey":true,"isForeignKey":false,"isNullable":false}}],"suggested_relationships":[{{"from_table":"child","from_column":"fk_col","to_table":"parent","to_column":"id","relationship_type":"one_to_many","confidence":"high","reason":"Foreign key column matches existing table name"}}]}}"""
+Rules: snake_case, unique ids, primary key id (uuid), mark *_id as foreign keys if parent table exists."""
+    
+    # Calculate available tokens for schema
+    available_tokens = calculate_available_tokens_for_schema(compact_prompt, max_context, output_buffer=150, safety=50)
+    
+    # Truncate schema to fit
+    truncated_schema = truncate_schema_context(request.current_schema, max_tokens=available_tokens)
+    
+    # Build final prompt
+    system_prompt = compact_prompt.replace("{schema}", truncated_schema)
 
     messages_text = f"[INST] {system_prompt} [/INST]"
 
@@ -578,27 +685,66 @@ Output format:
 
     last_error: Optional[Exception] = None
     last_raw: str = ""
+    
+    # Validate token count before sending
+    estimated_tokens = estimate_tokens(messages_text)
+    max_context = int(os.getenv("AI_MAX_CONTEXT_TOKENS", "512"))
+    
+    if estimated_tokens > max_context:
+        logger.warning(f"Request exceeds context limit: {estimated_tokens} > {max_context}")
+        # Further truncate if needed
+        available_tokens = calculate_available_tokens_for_schema(compact_prompt, max_context, output_buffer=150, safety=50)
+        truncated_schema = truncate_schema_context(request.current_schema, max_tokens=available_tokens)
+        system_prompt = compact_prompt.replace("{schema}", truncated_schema)
+        messages_text = f"[INST] {system_prompt} [/INST]"
+        estimated_tokens = estimate_tokens(messages_text)
+        logger.info(f"After truncation: {estimated_tokens} tokens")
+    
     for attempt_idx, attempt_prompt in enumerate([messages_text, fallback_messages_text], start=1):
         try:
+            # Log token usage
+            prompt_tokens = estimate_tokens(attempt_prompt)
+            logger.info(f"Attempt {attempt_idx}: Sending request with ~{prompt_tokens} tokens (limit: {max_context})")
+            
             response_text = generate_with_fallback(attempt_prompt)
             last_raw = response_text
-            print(f"Model response (attempt {attempt_idx}): {response_text[:2000]}")
+            logger.debug(f"Model response (attempt {attempt_idx}): {response_text[:500]}")
+            
             result = parse_model_json_response(response_text)
-
+            
+            # Validate result structure
+            if not isinstance(result, dict):
+                raise ValueError(f"Expected dict, got {type(result)}")
+            
             result = normalize_table_result(result, request.prompt, request.current_schema or "")
+            
+            # Log success
+            logger.info(f"Successfully created table: {result.get('label', 'unknown')}")
             return result
         except Exception as e:
             last_error = e
+            logger.error(f"Attempt {attempt_idx} failed: {str(e)}")
             continue
 
+    # All attempts failed - return fallback with detailed error
     inferred_label = infer_table_label_from_prompt(request.prompt)
+    error_message = f"AI output invalid JSON after 2 attempts. Last error: {str(last_error)}"
+    if "context length" in str(last_error).lower() or estimated_tokens > max_context:
+        error_message += f" Context limit may have been exceeded ({estimated_tokens} tokens). Consider using a model with larger context or reducing schema size."
+    
+    logger.error(error_message)
     return {
         "label": inferred_label,
         "columns": [
             {"id": "id", "name": "id", "type": "uuid", "isPrimaryKey": True, "isForeignKey": False, "isNullable": False}
         ],
         "suggested_relationships": [],
-        "error": f"AI output invalid JSON; returned fallback table. Last error: {str(last_error)}"
+        "error": error_message,
+        "metadata": {
+            "estimated_tokens": estimated_tokens,
+            "max_context": max_context,
+            "raw_response_preview": last_raw[:200] if last_raw else None
+        }
     }
 
 class CreateRelationshipsRequest(BaseModel):
@@ -623,17 +769,27 @@ async def auto_create_relationships(request: CreateRelationshipsRequest):
             ]
         }
 
-    # Truncate schema context to fit within model limits
-    truncated_schema = truncate_schema_context(request.current_schema, max_tokens=80)
+    # Get model context limit from environment
+    max_context = int(os.getenv("AI_MAX_CONTEXT_TOKENS", "512"))
     
-    system_prompt = f"""Find relationships for table: "{request.table_name}"
-Schema: {truncated_schema}
-
-Return JSON with relationships array:
-- from_table, from_column, to_table, to_column
-- relationship_type, confidence, reason
-
-Look for _id columns and semantic patterns. JSON only."""
+    # Compact prompt template
+    prompt_template = """Find relationships for: "{table_name}"
+Schema: {{schema}}
+Return JSON: {{"relationships":[{{"from_table":"child","from_column":"fk","to_table":"parent","to_column":"id","relationship_type":"one_to_many","confidence":"high","reason":"FK matches table"}}]}}"""
+    
+    # Calculate available tokens for schema
+    available_tokens = calculate_available_tokens_for_schema(
+        prompt_template.format(table_name=request.table_name, schema=""), 
+        max_context, 
+        output_buffer=150, 
+        safety=50
+    )
+    
+    # Truncate schema to fit
+    truncated_schema = truncate_schema_context(request.current_schema, max_tokens=available_tokens)
+    
+    # Build final prompt
+    system_prompt = prompt_template.format(table_name=request.table_name, schema=truncated_schema)
 
     messages_text = f"[INST] {system_prompt} [/INST]"
 
@@ -666,18 +822,29 @@ async def get_suggestions(erd_state: dict):
             ]
         }
 
-    # Truncate ERD state to fit within model limits
-    erd_json = json.dumps(erd_state)
-    truncated_erd = truncate_schema_context(erd_json, max_tokens=150)
+    # Get model context limit from environment
+    max_context = int(os.getenv("AI_MAX_CONTEXT_TOKENS", "512"))
     
-    system_prompt = f"""Analyze ERD for optimizations:
-{truncated_erd}
-
-Return JSON with suggestions array:
-- type, title, details, severity
-- actions array with action, payload
-
-Focus on: missing FKs, indexes, normalization, naming. JSON only."""
+    # Compact prompt template
+    prompt_template = """Analyze ERD:
+{{erd}}
+Return JSON: {{"suggestions":[{{"type":"add_foreign_key","title":"Title","details":"Details","severity":"info","actions":[{{"action":"add_foreign_key","payload":{{}}}}]}}]}}
+Focus: missing FKs, indexes, normalization, naming."""
+    
+    # Calculate available tokens for ERD state
+    available_tokens = calculate_available_tokens_for_schema(
+        prompt_template.format(erd=""), 
+        max_context, 
+        output_buffer=200, 
+        safety=50
+    )
+    
+    # Truncate ERD state to fit
+    erd_json = json.dumps(erd_state)
+    truncated_erd = truncate_schema_context(erd_json, max_tokens=available_tokens)
+    
+    # Build final prompt
+    system_prompt = prompt_template.format(erd=truncated_erd)
 
     user_prompt = ""
     messages_text = f"[INST] {system_prompt} {user_prompt} [/INST]"
