@@ -1,8 +1,0 @@
-Feedback / Behavior Note on Table-Level Handles:
-
-Delayed Activation Issue:
-The table-level connection points do work, but only after several attempts to create a connection.
-On the first attempt, connecting points between tables often fails. After a few tries, the connections start working consistently and can be used smoothly with any table.
-
-Expected Behavior:
-The handles should be fully functional from the very first attempt, without requiring multiple tries. This will improve usability and reduce confusion for users.
